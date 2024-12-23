@@ -1,0 +1,2 @@
+export const supabaseUrl = 'https://gpselvncljghnotcrpoh.supabase.co'
+export const supabaseAnonKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imdwc2Vsdm5jbGpnaG5vdGNycG9oIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzQzNjU3MjQsImV4cCI6MjA0OTk0MTcyNH0.WOM2tnGUFz0ViZKgwyZASapPUwOSvduB7OAFh3u01yo"
