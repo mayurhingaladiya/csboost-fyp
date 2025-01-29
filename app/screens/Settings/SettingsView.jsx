@@ -17,8 +17,8 @@ import { useRouter } from 'expo-router';
 import Input from '../../../components/Input';
 import Button from '../../../components/Button';
 import Icon from '../../../assets/icons';
-import { useUserSettings } from '../../../services/useUserSettings';
 import { useSettings } from '../../contexts/SettingsContext';
+import { hp } from '../../helpers/common';
 
 const optionsByLevel = {
     GCSE: ["AQA", "OCR", "Edexcel"],
@@ -31,6 +31,10 @@ const SettingsView = () => {
     const [showLevelModal, setShowLevelModal] = useState(false);
     const [showSpecModal, setShowSpecModal] = useState(false);
 
+    // Temporary states for unsaved changes
+    const [tempLevel, setTempLevel] = useState(settings.education_level);
+    const [tempSpec, setTempSpec] = useState(settings.exam_specification);
+
     if (error) {
         return (
             <View style={styles.errorContainer}>
@@ -40,40 +44,60 @@ const SettingsView = () => {
     }
 
     const onSave = async () => {
-        Alert.alert(
-            "Reset Progress",
-            "Changing your education level or exam specification will reset all your progress, including notes, quizzes, leaderboard scores, and daily quizzes. Do you want to continue?",
-            [
-                { text: "Cancel", style: "cancel" },
-                {
-                    text: "Confirm",
-                    style: "destructive",
-                    onPress: async () => {
-                        try {
-                            const { data: { user } } = await supabase.auth.getUser();
-                            // Clear progress in related tables
-                            await supabase.from("notesprogress").delete().eq("user_id", user.id);
-                            await supabase.from("quizprogress").delete().eq("user_id", user.id);
-                            await supabase.from("leaderboard").delete().eq("user_id", user.id);
-                            await supabase.from("dailyquizzes").delete().eq("user_id", user.id);
+        // Check if education level or specification has changed
+        const hasLevelOrSpecChanged =
+            tempLevel !== settings.education_level ||
+            tempSpec !== settings.exam_specification;
 
-                            // Save new settings
-                            await updateSettings({
-                                education_level: settings.education_level,
-                                exam_specification: settings.exam_specification,
-                                notifications_enabled: settings.notificationsEnabled,
-                            });
+        // If either level or specification changes, show reset alert
+        if (hasLevelOrSpecChanged) {
+            Alert.alert(
+                "Reset Progress",
+                "Changing your education level or exam specification will reset all your progress, including notes, quizzes, leaderboard scores, and daily quizzes. Do you want to continue?",
+                [
+                    { text: "Cancel", style: "cancel" },
+                    {
+                        text: "Confirm",
+                        style: "destructive",
+                        onPress: async () => {
+                            try {
+                                const { data: { user } } = await supabase.auth.getUser();
+                                // Clear progress in related tables
+                                await supabase.from("notesprogress").delete().eq("user_id", user.id);
+                                await supabase.from("quizprogress").delete().eq("user_id", user.id);
+                                await supabase.from("leaderboard").delete().eq("user_id", user.id);
+                                await supabase.from("dailyquizzes").delete().eq("user_id", user.id);
+                                // Reset progress logic...
+                                const updatedSettings = {
+                                    education_level: tempLevel,
+                                    exam_specification: tempSpec,
+                                    notificationsEnabled: settings.notificationsEnabled,
+                                };
 
-                            Alert.alert("Settings", "Your settings have been saved successfully, and your progress has been reset.");
-                        } catch (error) {
-                            console.error("Error resetting progress:", error);
-                            Alert.alert("Error", "Failed to reset progress. Please try again later.");
-                        }
+                                await updateSettings(updatedSettings);
+                                Alert.alert("Settings", "Your settings have been saved successfully, and your progress has been reset.");
+                            } catch (err) {
+                                console.error("Error resetting progress:", err);
+                                Alert.alert("Error", "Failed to reset progress. Please try again.");
+                            }
+                        },
                     },
-                },
-            ]
-        );
+                ]
+            );
+        } else {
+            // Update notifications only
+            try {
+                await updateSettings({
+                    notificationsEnabled: settings.notificationsEnabled,
+                });
+                Alert.alert("Settings", "Notification preferences updated successfully.");
+            } catch (err) {
+                console.error("Error saving settings:", err);
+                Alert.alert("Error", "Failed to save settings. Please try again.");
+            }
+        }
     };
+
 
     const onSignOut = async () => {
         const { error } = await supabase.auth.signOut();
@@ -145,38 +169,36 @@ const SettingsView = () => {
                         onPress={() => setShowLevelModal(true)}
                     >
                         <Text style={styles.inputText}>
-                            {settings.education_level || "Select Level"}
+                            {tempLevel || "Select Level"}
                         </Text>
                     </Pressable>
                     {renderModal(
                         showLevelModal,
                         setShowLevelModal,
                         Object.keys(optionsByLevel),
-                        (value) =>
-                            setSettings({ ...settings, education_level: value })
+                        (value) => setTempLevel(value)
                     )}
 
                     <Text style={styles.label}>Exam Specification</Text>
                     <Pressable
                         style={[
                             styles.input,
-                            { opacity: settings.education_level ? 1 : 0.5 },
+                            { opacity: tempLevel ? 1 : 0.5 },
                         ]}
                         onPress={() =>
-                            settings.education_level && setShowSpecModal(true)
+                            tempLevel && setShowSpecModal(true)
                         }
-                        disabled={!settings.education_level}
+                        disabled={!tempLevel}
                     >
                         <Text style={styles.inputText}>
-                            {settings.exam_specification || "Select Specification"}
+                            {tempSpec || "Select Specification"}
                         </Text>
                     </Pressable>
                     {renderModal(
                         showSpecModal,
                         setShowSpecModal,
-                        optionsByLevel[settings.education_level] || [],
-                        (value) =>
-                            setSettings({ ...settings, exam_specification: value })
+                        optionsByLevel[tempLevel] || [],
+                        (value) => setTempSpec(value)
                     )}
 
                     <View style={styles.switchContainer}>
@@ -216,7 +238,7 @@ const styles = StyleSheet.create({
         padding: 20,
     },
     form: {
-        marginTop: 20,
+        marginTop: hp(1),
         gap: 5,
     },
     label: {
@@ -226,8 +248,8 @@ const styles = StyleSheet.create({
     },
     input: {
         backgroundColor: "#f0f0f0",
-        borderRadius: 8,
-        padding: 12,
+        borderRadius: 16,
+        padding: 16,
         marginBottom: 10,
     },
     inputText: {
@@ -251,7 +273,7 @@ const styles = StyleSheet.create({
         fontWeight: "500",
     },
     deleteAccount: {
-        marginTop: 40,
+        marginTop: hp(10),
         alignItems: "center",
     },
     deleteAccountText: {

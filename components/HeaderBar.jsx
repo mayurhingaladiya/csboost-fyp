@@ -15,7 +15,8 @@ const HeaderBar = ({ title, subtitle }) => {
 const styles = StyleSheet.create({
     headerContainer: {
         backgroundColor: theme.colors.primary,
-        paddingVertical: hp(9),
+        paddingTop: hp(8),
+        paddingBottom: hp(3.5),
         paddingHorizontal: 20,
         borderBottomLeftRadius: 45,
         borderBottomRightRadius: 45,
@@ -32,7 +33,7 @@ const styles = StyleSheet.create({
     subtitle: {
         color: '#FFF',
         fontSize: hp(2),
-        marginTop: hp(2)
+        marginTop: hp(1)
     },
 });
 

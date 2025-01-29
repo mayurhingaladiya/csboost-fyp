@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from "react";
-import { View, Text, TouchableOpacity, StyleSheet, Alert, ActivityIndicator } from "react-native";
+import { View, Text, TouchableOpacity, ScrollView, StyleSheet, Alert, ActivityIndicator } from "react-native";
 import * as Progress from "react-native-progress";
 import { supabase } from "../../lib/supabase";
 import Button from "../../../components/Button";
 import { hp } from "../../helpers/common";
 import { Ionicons } from "@expo/vector-icons";
+import Markdown from 'react-native-markdown-display';
 
 const NotesScreen = ({ route, navigation }) => {
     const { subtopicId, subtopicTitle } = route.params;
@@ -40,6 +41,8 @@ const NotesScreen = ({ route, navigation }) => {
                 const content = notesData?.content;
                 if (content && content.sections) {
                     setSections(content.sections);
+                    console.log(sections[currentIndex]?.content);
+
                 } else {
                     Alert.alert("No Notes Found", "No notes data available for this subtopic.");
                 }
@@ -130,6 +133,8 @@ const NotesScreen = ({ route, navigation }) => {
     }
 
     const progress = (currentIndex + 1) / sections.length;
+    const formattedContent = sections[currentIndex]?.content.replace(/\\n/g, '\n');
+
 
     return (
         <View style={styles.container}>
@@ -148,7 +153,11 @@ const NotesScreen = ({ route, navigation }) => {
                 style={styles.progressBar}
             />
             <Text style={styles.sectionTitle}>{sections[currentIndex]?.title}</Text>
-            <Text style={styles.sectionContent}>{sections[currentIndex]?.content}</Text>
+            <ScrollView style={styles.scrollView}>
+                <Markdown style={styles.sectionContent}>
+                    {formattedContent}
+                </Markdown>
+            </ScrollView>
             <View style={styles.buttonContainer}>
                 <TouchableOpacity
                     style={[styles.continueButton]}
@@ -161,12 +170,13 @@ const NotesScreen = ({ route, navigation }) => {
                     onPress={handleContinue}
                 >
                     <Text style={styles.continueText}>
-                        {currentIndex < sections.length - 1 ? "Next Section" : "Finish"}
+                        {currentIndex < sections.length - 1 ? 'Next Section' : 'Finish'}
                     </Text>
                 </TouchableOpacity>
             </View>
         </View>
     );
+
 };
 
 const styles = StyleSheet.create({
@@ -174,6 +184,10 @@ const styles = StyleSheet.create({
         flex: 1,
         padding: 20,
         backgroundColor: "#0F1124",
+    },
+    scrollView: {
+        flex: 1,
+        padding: 20,
     },
     header: {
         flexDirection: "row",
@@ -226,6 +240,21 @@ const styles = StyleSheet.create({
         justifyContent: "space-between",
         marginTop: 20,
     },
+    sectionContent: {
+        body: {
+            fontSize: 16,
+            color: '#fff',
+            lineHeight: 24,
+        },
+        heading1: {
+            fontSize: 22,
+            fontWeight: 'bold',
+        },
+        listItem: {
+            marginVertical: 4,
+        },
+    },
+
 });
 
 export default NotesScreen;

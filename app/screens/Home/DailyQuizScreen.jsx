@@ -7,42 +7,41 @@ import { Ionicons } from "@expo/vector-icons";
 const DailyQuizScreen = ({ route, navigation }) => {
     const { questions = [], quizData } = route.params;
     const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
-    const [correctAnswers, setCorrectAnswers] = useState(0);
     const [selectedChoice, setSelectedChoice] = useState(null);
-    const [isAnswered, setIsAnswered] = useState(false);
+    const [correctAnswers, setCorrectAnswers] = useState(0);
 
     useEffect(() => {
-        // Hide the tab bar when this screen is focused
         navigation.getParent()?.setOptions({ tabBarStyle: { display: 'none' } });
-
-        // Show the tab bar again when this screen is unfocused
         return () => {
             navigation.getParent()?.setOptions({ tabBarStyle: { display: 'flex' } });
         };
     }, [navigation]);
 
-    const handleCheckAnswer = () => {
+    const handleAnswerSelection = () => {
         const currentQuestion = questions[currentQuestionIndex];
-        if (selectedChoice === currentQuestion.correct) {
-            setCorrectAnswers((prev) => prev + 1);
-            Alert.alert("Correct!", "Great job! 🎉");
-        } else {
-            Alert.alert(
-                "Incorrect",
-                "You need to get all answers correct for streak points."
-            );
-        }
-        setIsAnswered(true);
 
+        if (selectedChoice === currentQuestion.correct) {
+            setCorrectAnswers((prev) => {
+                return prev + 1;
+            });
+        }
     };
 
     const handleNextQuestion = () => {
-        setIsAnswered(false);
-        setSelectedChoice(null);
-        setCurrentQuestionIndex((prev) => prev + 1);
+        handleAnswerSelection(); 
+        setSelectedChoice(null); 
+        setCurrentQuestionIndex((prev) => {
+            return prev + 1;
+        });
     };
 
     const handleQuizCompletion = async () => {
+        let finalCorrectAnswers = correctAnswers;
+
+        if (selectedChoice === currentQuestion.correct) {
+            finalCorrectAnswers += 1;
+        }
+
         try {
             const userId = quizData?.user_id || null;
             const streakPoints = quizData?.streak_points || 0;
@@ -52,13 +51,13 @@ const DailyQuizScreen = ({ route, navigation }) => {
                 return;
             }
 
-            await submitDailyQuiz(userId, correctAnswers, streakPoints, true);
+            await submitDailyQuiz(userId, finalCorrectAnswers, streakPoints, true);
 
             Alert.alert(
                 "Quiz Completed",
-                correctAnswers === questions.length
-                    ? "Great job! You've earned a streak point! 🔥"
-                    : "Quiz completed, but you didn't earn a streak point this time."
+                finalCorrectAnswers === questions.length
+                    ? `Great job! You scored ${finalCorrectAnswers}/${questions.length} and earned a streak point! 🔥`
+                    : `Quiz completed! You scored ${finalCorrectAnswers}/${questions.length}. Better luck next time for the streak point!`
             );
             navigation.goBack();
         } catch (err) {
@@ -66,7 +65,6 @@ const DailyQuizScreen = ({ route, navigation }) => {
             Alert.alert("Error", "Failed to submit quiz results.");
         }
     };
-
 
     const currentQuestion = questions[currentQuestionIndex];
     const totalQuestions = questions.length;
@@ -105,7 +103,7 @@ const DailyQuizScreen = ({ route, navigation }) => {
                 width={null}
                 height={13}
                 borderRadius={22}
-                color={isAnswered ? "green" : "#6E3FFF"}
+                color="#6E3FFF"
                 style={styles.progressBar}
             />
 
@@ -124,44 +122,38 @@ const DailyQuizScreen = ({ route, navigation }) => {
                         key={index}
                         style={[
                             styles.choiceButton,
-                            selectedChoice === index && !isAnswered && styles.choiceSelected,
-                            isAnswered && selectedChoice === index && styles.choiceAnswered,
-                            isAnswered &&
-                            selectedChoice === index &&
-                            selectedChoice !== currentQuestion.correct &&
-                            styles.choiceIncorrect,
+                            selectedChoice === index && styles.choiceSelected,
                         ]}
-                        onPress={() => !isAnswered && setSelectedChoice(index)}
+                        onPress={() => {
+                            setSelectedChoice(index);
+                        }}
                     >
                         <Text style={styles.choiceText}>{choice}</Text>
                     </TouchableOpacity>
                 ))}
             </View>
 
-            {/* Check Answer / Next Question / Finish */}
+            {/* Next Question / Finish */}
             <View style={styles.actionContainer}>
-                {!isAnswered ? (
+                {currentQuestionIndex + 1 < totalQuestions ? (
                     <TouchableOpacity
                         style={[
                             styles.actionButton,
                             selectedChoice === null && styles.actionButtonDisabled,
                         ]}
-                        onPress={handleCheckAnswer}
-                        disabled={selectedChoice === null}
-                    >
-                        <Text style={styles.actionButtonText}>Check Answer</Text>
-                    </TouchableOpacity>
-                ) : currentQuestionIndex + 1 < totalQuestions ? (
-                    <TouchableOpacity
-                        style={styles.actionButton}
                         onPress={handleNextQuestion}
+                        disabled={selectedChoice === null}
                     >
                         <Text style={styles.actionButtonText}>Next Question</Text>
                     </TouchableOpacity>
                 ) : (
                     <TouchableOpacity
-                        style={styles.actionButton}
+                        style={[
+                            styles.actionButton,
+                            selectedChoice === null && styles.actionButtonDisabled,
+                        ]}
                         onPress={handleQuizCompletion}
+                        disabled={selectedChoice === null}
                     >
                         <Text style={styles.actionButtonText}>Finish Quiz</Text>
                     </TouchableOpacity>
@@ -178,6 +170,12 @@ const styles = StyleSheet.create({
         flex: 1,
         backgroundColor: "#0F1124",
         padding: 16,
+    },
+    resultsContainer: {
+        flex: 1,
+        backgroundColor: "#0F1124",
+        padding: 16,
+        paddingTop: 50
     },
     header: {
         flexDirection: "row",
@@ -261,5 +259,13 @@ const styles = StyleSheet.create({
         color: "#FFFFFF",
         textAlign: "center",
         marginTop: 16,
+    },
+    resultText: {
+        fontSize: 20,
+        fontWeight: "bold",
+        color: "#FFFFFF",
+        textAlign: "center",
+        justifyContent: "center",
+        marginVertical: 10,
     },
 });

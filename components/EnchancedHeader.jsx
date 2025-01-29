@@ -1,18 +1,44 @@
 import React from "react";
-import { View, Text, StyleSheet, TouchableOpacity, Alert } from "react-native";
-import { FontAwesome5, MaterialIcons } from "@expo/vector-icons";
+import { View, Text, StyleSheet, TouchableOpacity, Alert, Animated } from "react-native";
+import { FontAwesome5 } from "@expo/vector-icons";
 import { theme } from "../constants/theme";
 import { hp } from "../app/helpers/common";
+const EnhancedHeader = ({
+    username,
+    streak,
+    rank,
+    examSpec,
+    educationLevel,
+    scrollY,
+}) => {
+    const HEADER_MAX_HEIGHT = 200;
+    const HEADER_MIN_HEIGHT = 70;
+    const HEADER_SCROLL_DISTANCE = HEADER_MAX_HEIGHT - HEADER_MIN_HEIGHT;
 
-// Mock data for rank and education details
-const mockRank = {
-    rank: 5,
-    icon: "medal", // Use a FontAwesome5 icon
-    description: "Achieve higher ranks by completing daily quizzes and activities!",
-};
+    const headerHeight = scrollY.interpolate({
+        inputRange: [0, HEADER_SCROLL_DISTANCE],
+        outputRange: [HEADER_MAX_HEIGHT, HEADER_MIN_HEIGHT],
+        extrapolate: "clamp",
+    });
 
-const EnhancedHeader = ({ username, streak, rank, examSpec, educationLevel }) => {
-    // Get the current greeting based on local time
+    const headerOpacity = scrollY.interpolate({
+        inputRange: [0, HEADER_SCROLL_DISTANCE / 2, HEADER_SCROLL_DISTANCE],
+        outputRange: [1, 0.5, 0],
+        extrapolate: "clamp",
+    });
+
+    const fontSize = scrollY.interpolate({
+        inputRange: [0, HEADER_SCROLL_DISTANCE],
+        outputRange: [24, 18],
+        extrapolate: "clamp",
+    });
+
+    const elementOpacity = scrollY.interpolate({
+        inputRange: [0, HEADER_SCROLL_DISTANCE / 1.5],
+        outputRange: [1, 0],
+        extrapolate: "clamp",
+    });
+
     const getGreeting = () => {
         const hour = new Date().getHours();
         if (hour < 12) return "Good Morning";
@@ -20,7 +46,6 @@ const EnhancedHeader = ({ username, streak, rank, examSpec, educationLevel }) =>
         return "Good Evening";
     };
 
-    // Handle tap on streak indicator
     const handleStreakPress = () => {
         Alert.alert(
             "Your Streak 🔥",
@@ -28,7 +53,6 @@ const EnhancedHeader = ({ username, streak, rank, examSpec, educationLevel }) =>
         );
     };
 
-    // Handle tap on rank
     const handleRankPress = () => {
         Alert.alert(
             `Your Rank 🏅`,
@@ -37,37 +61,44 @@ const EnhancedHeader = ({ username, streak, rank, examSpec, educationLevel }) =>
     };
 
     return (
-        <View style={styles.headerContainer}>
+        <Animated.View style={[styles.headerContainer, { height: headerHeight }]}>
             <View style={styles.topRow}>
-                <View>
-                    <Text style={styles.greetingText}>
-                        {getGreeting()},
-                    </Text>
+                <Animated.View style={{ opacity: elementOpacity }}>
+                    <Animated.Text
+                        style={[styles.greetingText, { fontSize }]}
+                    >
+                        {getGreeting()}
+                    </Animated.Text>
                     <Text style={styles.userName}>{username || "Learner"}</Text>
                     <Text style={styles.subText}>
                         {educationLevel} | {examSpec}
                     </Text>
-                </View>
+                </Animated.View>
                 <View style={styles.topRight}>
-                    <TouchableOpacity onPress={handleStreakPress} style={styles.streakContainer}>
+                    <TouchableOpacity
+                        onPress={handleStreakPress}
+                        style={styles.streakContainer}
+                    >
                         <FontAwesome5 name="fire" size={20} color="#FF4500" />
                         <Text style={styles.streakText}>{streak}</Text>
                     </TouchableOpacity>
-                    <TouchableOpacity onPress={handleRankPress} style={styles.rankContainer}>
+                    <TouchableOpacity
+                        onPress={handleRankPress}
+                        style={styles.rankContainer}
+                    >
                         <FontAwesome5 name="medal" size={20} color="#FFD700" />
                         <Text style={styles.rankText}>#{rank}</Text>
                     </TouchableOpacity>
                 </View>
             </View>
-        </View>
+        </Animated.View>
     );
 };
 
 const styles = StyleSheet.create({
     headerContainer: {
         backgroundColor: theme.colors.primary,
-        paddingTop: hp(9),
-        paddingBottom: hp(6.5),
+        paddingTop: hp(8),
         paddingHorizontal: 20,
         borderBottomLeftRadius: 45,
         borderBottomRightRadius: 45,
@@ -75,6 +106,8 @@ const styles = StyleSheet.create({
         shadowOffset: { width: 0, height: 8 },
         shadowOpacity: 1,
         shadowRadius: 1,
+        zIndex: 2,
+        elevation: 4,
     },
     topRow: {
         flexDirection: "row",
@@ -82,19 +115,18 @@ const styles = StyleSheet.create({
         alignItems: "baseline",
     },
     greetingText: {
-        color: '#FFF',
-        fontSize: hp(4),
-        fontWeight: 'bold',
+        color: "#FFF",
+        fontWeight: "bold",
     },
     userName: {
-        color: '#FFF',
-        fontSize: hp(3),
-        fontWeight: '500',
+        color: "#FFF",
+        fontSize: 20,
+        fontWeight: "500",
     },
     subText: {
-        color: '#FFF',
-        fontSize: hp(2),
-        marginTop: hp(2)
+        color: "#FFF",
+        fontSize: 16,
+        marginTop: 8,
     },
     topRight: {
         flexDirection: "row",

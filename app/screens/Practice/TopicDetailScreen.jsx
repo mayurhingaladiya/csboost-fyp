@@ -15,10 +15,7 @@ const TopicDetailScreen = ({ route, navigation }) => {
     const [userId, setUserId] = useState(null);
 
     useEffect(() => {
-        // Hide the tab bar when this screen is focused
         navigation.getParent()?.setOptions({ tabBarStyle: { display: 'none' } });
-
-        // Show the tab bar again when this screen is unfocused
         return () => {
             navigation.getParent()?.setOptions({ tabBarStyle: { display: 'flex' } });
         };
@@ -63,6 +60,22 @@ const TopicDetailScreen = ({ route, navigation }) => {
         setExpandedSubtopic((prev) => (prev === id ? null : id));
     };
 
+    // Calculate overall progress for all subtopics
+    const calculateOverallProgress = () => {
+        const progressValues = Object.values(progressData).map((p) => p.overall || 0);
+        const totalProgress = progressValues.reduce((acc, curr) => acc + curr, 0);
+        return progressValues.length > 0 ? parseFloat((totalProgress / progressValues.length).toFixed(2)) : 0;
+    };
+
+    const overallProgress = calculateOverallProgress();
+
+    // Determine background color based on progress percentage
+    const getProgressColor = (progress) => {
+        if (progress >= 70) return "#DFF6DD"; // Light Green
+        if (progress >= 30) return "#FFF4CC"; // Light Yellow
+        return "#FFD6D6"; // Light Red
+    };
+
     return (
         <View style={styles.container}>
             {/* Header */}
@@ -82,7 +95,20 @@ const TopicDetailScreen = ({ route, navigation }) => {
                     <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
                 </TouchableOpacity>
                 <Text style={styles.headerTitle}>{topicTitle}</Text>
+                {/* Overall Progress */}
+                <View
+                    style={[
+                        styles.overallProgressContainer,
+                        { backgroundColor: getProgressColor(overallProgress) },
+                    ]}
+                >
+                    <Text style={styles.overallProgressText}>
+                        Overall Progress: {Math.round(overallProgress)}%
+                    </Text>
+                </View>
             </View>
+
+
 
             {/* Subtopics */}
             <ScrollView style={styles.content}>
@@ -136,6 +162,7 @@ const TopicDetailScreen = ({ route, navigation }) => {
     );
 };
 
+
 export default TopicDetailScreen;
 
 
@@ -145,7 +172,8 @@ const styles = StyleSheet.create({
         backgroundColor: "#121212",
     },
     header: {
-        paddingVertical: hp(12),
+        paddingTop: hp(12),
+        paddingBottom: hp(7),
         paddingHorizontal: wp(4),
         backgroundColor: "#0F1124",
         gap: 10,
@@ -157,6 +185,13 @@ const styles = StyleSheet.create({
         fontWeight: "bold",
         color: "#FFFFFF",
     },
+    overallProgressContainer: {
+        padding: 16,
+        margin: 10,
+        borderRadius: 8,
+        alignItems: "center",
+    },
+    overallProgressText: { fontSize: 16, fontWeight: "bold", color: "#000" },
     content: {
         padding: 16,
         backgroundColor: "#fff"

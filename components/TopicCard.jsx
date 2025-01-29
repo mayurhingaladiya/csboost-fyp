@@ -1,12 +1,12 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import ProgressCircle from './ProgessCircle';
-import { theme } from '../constants/theme';
+import { Text, TouchableOpacity, StyleSheet } from 'react-native';
 
 const TopicCard = ({ title, onPress, renderProgressCircle }) => {
     return (
         <TouchableOpacity style={styles.card} onPress={onPress}>
-            <Text style={styles.cardTitle}>{title}</Text>
+            <Text style={styles.cardTitle} numberOfLines={1} ellipsizeMode="tail">
+                {title}
+            </Text>
             {renderProgressCircle && renderProgressCircle()}
         </TouchableOpacity>
     );
@@ -18,7 +18,7 @@ const styles = StyleSheet.create({
         justifyContent: 'space-between',
         alignItems: 'center',
         backgroundColor: '#E9E9E9',
-        padding: 11,
+        padding: 9,
         borderRadius: 20,
         marginBottom: 10,
         shadowColor: '#000',
@@ -26,13 +26,16 @@ const styles = StyleSheet.create({
         shadowOpacity: 0.1,
         shadowRadius: 4,
         elevation: 3,
-        borderColor: theme.colors.dark,
-        borderWidth: 1,
+        borderColor: '#333',
+        borderWidth: 0.2,
     },
-    title: {
+    cardTitle: {
         fontSize: 14,
         fontWeight: '500',
+        flex: 1, 
+        marginRight: 10, 
     },
 });
+
 
 export default TopicCard;

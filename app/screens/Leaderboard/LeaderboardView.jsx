@@ -102,7 +102,7 @@ const LeaderboardView = () => {
                         You are ranked {userRank === "Unranked" ? "Unranked" : `#${userRank}`}
                     </Text>
                 )}
-                <Text style={styles.subText}>Showing the top 10 users</Text>
+                <Text style={styles.subText}>Showing the top 10 users. Refreshes every 10 seconds</Text>
             </View>
             <FlatList
                 data={leaderboardData}

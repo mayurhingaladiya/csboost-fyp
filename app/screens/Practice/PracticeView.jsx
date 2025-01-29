@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Alert, Animated } from 'react-native';
 import HeaderBar from '../../../components/HeaderBar';
 import TopicCard from '../../../components/TopicCard';
 import { supabase } from '../../lib/supabase';
@@ -7,13 +7,16 @@ import useTopics from '../../../services/useTopics';
 import { useSettings } from '../../contexts/SettingsContext';
 import Loading from '../../../components/Loading';
 import ProgressCircle from '../../../components/ProgessCircle';
-import { fetchNotesProgress, fetchQuizProgress } from '../../../services/supabaseHelpers';
+import { fetchOverallProgress, fetchSubtopicProgress } from '../../../services/supabaseHelpers';
 import { useFocusEffect } from 'expo-router';
+import PracticeHeader from '../../../components/PracticeHeader';
 
 const PracticeView = ({ navigation }) => {
     const { settings, loading: settingsLoading } = useSettings();
     const [userId, setUserId] = useState(null);
-    const [topicProgress, setTopicProgress] = useState({}); // Store progress for each topic
+    const [topicProgress, setTopicProgress] = useState({});
+    const [overallProgress, setOverallProgress] = useState(0);
+
 
     useEffect(() => {
         const fetchUserId = async () => {
@@ -34,56 +37,32 @@ const PracticeView = ({ navigation }) => {
         settings.exam_specification
     );
 
-    const fetchSubtopicProgress = useCallback(
-        async (topicId) => {
-            if (!userId) return 0;
-
-            try {
-                const { data: subtopics, error: subtopicsError } = await supabase
-                    .from("subtopics")
-                    .select("id")
-                    .eq("topic_id", topicId);
-
-                if (subtopicsError) throw subtopicsError;
-
-                if (!subtopics || subtopics.length === 0) return 0;
-
-                let totalProgress = 0;
-                for (const subtopic of subtopics) {
-                    const notesProgress = await fetchNotesProgress(userId, subtopic.id);
-                    const quizProgress = await fetchQuizProgress(userId, subtopic.id);
-                    const subtopicProgress = (notesProgress + quizProgress) / 2;
-                    totalProgress += subtopicProgress;
-                }
-
-                return totalProgress / subtopics.length;
-            } catch (err) {
-                console.error("Error fetching subtopic progress:", err.message);
-                return 0;
-            }
-        },
-        [userId]
-    );
-
-    const fetchAllProgress = useCallback(async () => {
+    const updateAllProgress = useCallback(async () => {
         if (!topicsData || !userId) return;
 
         const progressMap = {};
         for (const section of topicsData) {
             for (const topic of section.topics) {
-                const averageProgress = await fetchSubtopicProgress(topic.id);
+                const averageProgress = await fetchSubtopicProgress(userId, topic.id);
                 progressMap[topic.id] = averageProgress;
             }
         }
         setTopicProgress(progressMap);
-    }, [topicsData, userId, fetchSubtopicProgress]);
+    }, [topicsData, userId]);
 
-    // Re-fetch progress when the screen is focused
+    const fetchProgress = async () => {
+        const progress = await fetchOverallProgress(userId, topicsData);
+        setOverallProgress(progress / 10);
+    };
+
     useFocusEffect(
         useCallback(() => {
-            fetchAllProgress();
-        }, [fetchAllProgress])
+            fetchProgress();
+            updateAllProgress();
+        }, [updateAllProgress, userId, topicsData])
     );
+
+
 
     const handleTopicPress = async (topic) => {
         try {
@@ -110,46 +89,62 @@ const PracticeView = ({ navigation }) => {
     };
 
     if (error) {
-        Alert.alert("Error", error);
+        Alert.alert("Error", error.message || "An error occurred.");
     }
+
+    const scrollY = React.useRef(new Animated.Value(0)).current;
 
     return (
         <View style={styles.container}>
-            <HeaderBar
-                title="Practice"
-                subtitle={`${settings.education_level || ""} ${settings.exam_specification || ""}`}
-            />
+            <Animated.ScrollView
+                onScroll={Animated.event(
+                    [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+                    { useNativeDriver: false }
+                )}
+                scrollEventThrottle={16}
+            >
 
-            {loading || settingsLoading ? (
-                <View style={styles.loadingText}>
-                    <Loading />
-                </View>
-            ) : topicsData?.length > 0 ? (
-                <ScrollView style={styles.content}>
-                    {topicsData.map((section, index) => (
-                        <View key={index}>
-                            <Text style={styles.paperTitle}>Paper {section.paper}</Text>
-                            {section.topics.map((topic) => (
-                                <TopicCard
-                                    key={topic.id}
-                                    title={topic.title}
-                                    onPress={() => handleTopicPress(topic)}
-                                    renderProgressCircle={() => (
-                                        <ProgressCircle
-                                            progress={topicProgress[topic.id] || 0}
-                                        />
-                                    )}
-                                />
-                            ))}
-                        </View>
-                    ))}
-                </ScrollView>
-            ) : (
-                <Text style={styles.noTopicsText}>No topics available for this specification.</Text>
-            )}
+                <PracticeHeader
+                    title="Practice"
+                    subtitle={`${settings.education_level || ""} ${settings.exam_specification || ""}`}
+                    overallProgress={overallProgress}
+                    scrollY={scrollY}
+
+                />
+
+                {loading || settingsLoading ? (
+                    <View style={styles.loadingContainer}>
+                        <Loading />
+                    </View>
+                ) : topicsData?.length > 0 ? (
+                    <ScrollView style={styles.content}>
+                        {topicsData.map((section, index) => (
+                            <View key={index}>
+                                <Text style={styles.paperTitle}>Paper {section.paper}</Text>
+                                {section.topics.map((topic) => (
+                                    <TopicCard
+                                        key={topic.id}
+                                        title={topic.title}
+                                        onPress={() => handleTopicPress(topic)}
+                                        renderProgressCircle={() => (
+                                            <ProgressCircle
+                                                progress={topicProgress[topic.id] || 0}
+                                            />
+                                        )}
+                                    />
+                                ))}
+                            </View>
+                        ))}
+                    </ScrollView>
+                ) : (
+                    <Text style={styles.noTopicsText}>No topics available for this specification.</Text>
+                )}
+            </Animated.ScrollView>
+
         </View>
     );
 };
+
 
 const styles = StyleSheet.create({
     container: {

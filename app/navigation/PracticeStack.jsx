@@ -31,7 +31,6 @@ const PracticeStack = () => {
                 component={NotesScreen}
                 options={{ headerShown: false }}
             />
-
         </Stack.Navigator>
     );
 };

@@ -14,7 +14,7 @@ const BottomTabs = () => {
         <SettingsProvider>
             <Tab.Navigator
                 screenOptions={({ route }) => ({
-                    tabBarLabelStyle: { fontSize: 12 }, // Adjust label font size
+                    tabBarLabelStyle: { fontSize: 11 }, // Adjust label font size
                     tabBarActiveTintColor: "#6E3FFF", // Active tab color
                     tabBarInactiveTintColor: "gray",
                     headerShown: false, // Hide the header
@@ -25,10 +25,10 @@ const BottomTabs = () => {
                         // Map icons to routes
                         switch (route.name) {
                             case "Home":
-                                iconName = "home-outline";
+                                iconName = "home-variant-outline";
                                 break;
                             case "Practice":
-                                iconName = "book-open-outline";
+                                iconName = "book-multiple-outline";
                                 break;
                             case "Leaderboard":
                                 iconName = "trophy-outline";
