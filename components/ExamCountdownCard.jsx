@@ -25,7 +25,7 @@ const ExamCountdownCard = ({ userId, educationLevel, examSpecification }) => {
         if (!userId || !topicsData?.length) return;
         try {
             const progress = await fetchOverallProgress(userId, topicsData);
-            setOverallProgress(progress / 10);
+            setOverallProgress(progress / 100);
 
             const weakest = await fetchWeakestSubtopics(userId, topicsData);
             setWeakSubtopics(weakest);

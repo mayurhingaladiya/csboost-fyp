@@ -52,7 +52,7 @@ const PracticeView = ({ navigation }) => {
 
     const fetchProgress = async () => {
         const progress = await fetchOverallProgress(userId, topicsData);
-        setOverallProgress(progress / 10);
+        setOverallProgress(progress / 100);
     };
 
     useFocusEffect(
