@@ -19,19 +19,20 @@ const login = () => {
 
     const onsubmit = async () => {
         if (!emailRef.current || !passwordRef.current) {
-            Alert.alert('Login', "Please fill all fields!")
+            Alert.alert('Login', "Please fill all fields!");
+            return;
         }
         let email = emailRef.current.trim();
         let password = passwordRef.current.trim();
 
         setLoading(true);
-        const {error} = await supabase.auth.signInWithPassword({
+        const { error } = await supabase.auth.signInWithPassword({
             email,
             password
         });
         setLoading(false)
         console.log('error: ', error);
-        if(error){
+        if (error) {
             Alert.alert('Login', error.message)
         }
     }
@@ -50,9 +51,20 @@ const login = () => {
                 {/* foprm */}
                 <View style={styles.form}>
                     <Text style={{ fontSize: hp(1.5), color: theme.colors.text }}>Please login to continue</Text>
-                    <Input icon={<Icon name="email" size={26} strokeWidth={1.6} />} placeholder="Enter your email" onChangeText={value => emailRef.current = value} />
-                    <Input icon={<Icon name="lock" size={26} strokeWidth={1.6} />} secureTextEntry placeholder="Enter your password" onChangeText={value => passwordRef.current = value} />
-                    <Text style={styles.forgotPassword}>Forgot Password?</Text>
+                    <Input
+                        testID="email-input"
+                        icon={<Icon name="email" size={26} strokeWidth={1.6} />}
+                        placeholder="Enter your email"
+                        onChangeText={value => emailRef.current = value}
+                    />
+                    <Input
+                        testID="password-input"
+                        icon={<Icon name="lock" size={26} strokeWidth={1.6} />}
+                        secureTextEntry
+                        placeholder="Enter your password"
+                        onChangeText={value => passwordRef.current = value}
+                    />
+                    {/* <Text style={styles.forgotPassword}>Forgot Password?</Text> */}
                     <Button title={'Login'} loading={loading} onPress={() => onsubmit()} />
                 </View>
                 {/* Footer */}

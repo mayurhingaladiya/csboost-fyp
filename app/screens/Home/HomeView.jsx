@@ -2,12 +2,14 @@ import React, { useCallback, useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, Alert, Animated, Dimensions, Button } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import { fetchRecentActivity, fetchSubtopicProgress, fetchUserData, fetchUserRank } from '../../../services/supabaseHelpers';
-import { fetchDailyQuizQuestions, fetchQuizData } from '../../../services/DailyQuizLogic';
+import { ensureDailyQuizzes, fetchDailyQuizQuestions, fetchQuizData } from '../../../services/DailyQuizLogic';
 import DailyQuizCard from '../../../components/DailyQuizCard';
 import EnhancedHeader from '../../../components/EnchancedHeader';
 import ContinueLearningCard from '../../../components/ContinueLearningCard';
 import ExamCountdownCard from '../../../components/ExamCountdownCard';
 import { supabase } from '../../lib/supabase';
+import OnboardingModal from '../../../components/OnboardingModal';
+import RevisionTipsCard from '../../../components/RevisionTipsCard';
 
 const { width } = Dimensions.get("window");
 
@@ -18,6 +20,8 @@ const HomeView = ({ navigation }) => {
     const [progress, setProgress] = useState(0);
     const [quizData, setQuizData] = useState(null);
     const [userRank, setUserRank] = useState(null);
+    const [showOnboarding, setShowOnboarding] = useState(false);
+
 
     const scrollY = new Animated.Value(0);
 
@@ -27,6 +31,10 @@ const HomeView = ({ navigation }) => {
             const { user, userId } = await fetchUserData();
             setUsername(user.email.split("@")[0]);
             setUserData(user);
+            if (!user.has_seen_onboarding) {
+                setShowOnboarding(true);
+            }
+            await ensureDailyQuizzes(userId)
 
             const rank = await fetchUserRank(userId);
             setUserRank(rank);
@@ -102,6 +110,7 @@ const HomeView = ({ navigation }) => {
         console.log('Notification permissions granted.');
     };
 
+
     useEffect(() => {
         registerForPushNotificationsAsync();
     }, []);
@@ -109,6 +118,13 @@ const HomeView = ({ navigation }) => {
 
     return (
         <View style={styles.container}>
+            <OnboardingModal
+                visible={showOnboarding}
+                onClose={async () => {
+                    setShowOnboarding(false);
+                    await supabase.from("users").update({ has_seen_onboarding: true }).eq("id", userData.id);
+                }}
+            />
             <ScrollView
                 contentContainerStyle={styles.scrollContainer}
                 onScroll={Animated.event(
@@ -140,15 +156,20 @@ const HomeView = ({ navigation }) => {
                         onPress={handleContinueStudying}
                     />
                 ) : (
-                    <Text style={styles.messageText}>
-                        Start a topic to begin learning! 🚀
-                    </Text>
+                    <View style={styles.learningBadge}>
+                        <Text style={styles.badgeText}>Time to kick off your revision!</Text>
+                        <Text style={styles.badgeSubtext}>
+                            Head over to the <Text style={styles.bold}>Practice</Text> tab and start learning today 🚀
+                        </Text>
+                    </View>
                 )}
                 <ExamCountdownCard
                     userId={userData.id}
                     educationLevel={userData.education_level}
                     examSpecification={userData.exam_specification}
                 />
+                <RevisionTipsCard />
+
             </ScrollView>
         </View>
     );
@@ -182,11 +203,73 @@ const styles = StyleSheet.create({
         paddingBottom: 20,
         gap: 4,
     },
-    messageText: {
-        textAlign: "center",
-        fontSize: 16,
-        color: "#555",
+    learningBadge: {
+        backgroundColor: "#FFF3E8",
+        borderRadius: 20,
+        paddingVertical: 20,
+        paddingHorizontal: 16,
+        alignItems: "center",
+        justifyContent: "center",
+        marginHorizontal: 20,
+        marginTop: 5,
+        marginBottom: 5,
+        shadowColor: "#FFA726",
+        shadowOpacity: 0.08,
+        shadowRadius: 6,
+        shadowOffset: { width: 0, height: 2 },
+        elevation: 2,
     },
+
+    badgeText: {
+        fontSize: 16,
+        fontWeight: "bold",
+        color: "#E65100",
+        marginBottom: 6,
+        textAlign: "center",
+    },
+    badgeSubtext: {
+        fontSize: 14,
+        color: "#444",
+        textAlign: "center",
+        lineHeight: 20,
+    },
+    bold: {
+        fontWeight: "bold",
+        color: "#D84315",
+    },
+
+    overlay: {
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        backgroundColor: 'rgba(0,0,0,0.6)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        padding: 20,
+        zIndex: 999,
+    },
+    card: {
+        backgroundColor: 'white',
+        padding: 20,
+        borderRadius: 12,
+        alignItems: 'center',
+        gap: 10,
+        width: '100%',
+        maxWidth: 350,
+    },
+    title: {
+        fontSize: 20,
+        fontWeight: 'bold',
+        textAlign: 'center',
+    },
+    description: {
+        fontSize: 16,
+        textAlign: 'center',
+        color: '#555',
+    },
+
 });
 
 export default HomeView;

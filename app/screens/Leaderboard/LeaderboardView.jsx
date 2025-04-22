@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from "react";
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert } from "react-native";
+import React, { useEffect, useState, useCallback} from "react";
+import { View, Text, FlatList, StyleSheet, TouchableOpacity, RefreshControl, ActivityIndicator, Alert } from "react-native";
 import { MaterialIcons } from "@expo/vector-icons";
 import { theme } from "../../../constants/theme";
 import { hp } from "../../helpers/common";
@@ -8,11 +8,12 @@ import { supabase } from "../../lib/supabase";
 const LeaderboardView = () => {
     const [leaderboardData, setLeaderboardData] = useState([]);
     const [userRank, setUserRank] = useState(null);
+    const [loading, setLoading] = useState(true);
+    const [refreshing, setRefreshing] = useState(false);
 
-    // Fetch leaderboard data
     const fetchLeaderboardData = async () => {
         try {
-            // Fetch top 10 leaderboard entries
+            setLoading(true);
             const { data: leaderboard, error } = await supabase
                 .from("leaderboard")
                 .select("user_id, rank, streak_points, users(email)")
@@ -20,7 +21,7 @@ const LeaderboardView = () => {
                 .limit(10);
 
             if (error) {
-                console.error("Error fetching leaderboard data:", error.message);
+                console.error("Error fetching leaderboard:", error.message);
                 return;
             }
 
@@ -31,45 +32,38 @@ const LeaderboardView = () => {
                 }))
             );
 
-            // Get the current user's session
             const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-
-            if (sessionError || !session) {
-                console.error("Error fetching session:", sessionError?.message);
-                return;
-            }
+            if (sessionError || !session) return;
 
             const userId = session.user.id;
-
-            // Fetch the current user's rank from the leaderboard
             const { data: userRankData, error: rankError } = await supabase
                 .from("leaderboard")
                 .select("rank, streak_points")
                 .eq("user_id", userId)
                 .single();
 
-            if (rankError) {
-                if (rankError.code === "PGRST116") {
-                    // User is not in the leaderboard table
-                    setUserRank("Unranked");
-                } else {
-                    console.error("Error fetching user rank:", rankError.message);
-                }
-                return;
+            if (rankError?.code === "PGRST116") {
+                setUserRank("Unranked");
+            } else if (rankError) {
+                console.error("Error fetching user rank:", rankError.message);
+            } else {
+                setUserRank(userRankData?.rank || "Unranked");
             }
-
-            setUserRank(userRankData?.rank || "Unranked");
         } catch (err) {
-            console.error("Error in fetchLeaderboardData:", err.message);
+            console.error("Error fetching leaderboard:", err.message);
+        } finally {
+            setLoading(false);
+            setRefreshing(false);
         }
     };
 
     useEffect(() => {
-        const intervalId = setInterval(() => {
-            fetchLeaderboardData();
-        }, 10000); // Fetch every 10 seconds
+        fetchLeaderboardData();
+    }, []);
 
-        return () => clearInterval(intervalId);
+    const onRefresh = useCallback(() => {
+        setRefreshing(true);
+        fetchLeaderboardData();
     }, []);
 
     const handleHelpPress = () => {
@@ -102,14 +96,29 @@ const LeaderboardView = () => {
                         You are ranked {userRank === "Unranked" ? "Unranked" : `#${userRank}`}
                     </Text>
                 )}
-                <Text style={styles.subText}>Showing the top 10 users. Refreshes every 10 seconds</Text>
+                <Text style={styles.subText}>Pull down to refresh leaderboard</Text>
             </View>
-            <FlatList
-                data={leaderboardData}
-                renderItem={renderItem}
-                keyExtractor={(item) => item.user_id}
-                contentContainerStyle={styles.listContainer}
-            />
+
+            {loading ? (
+                <View style={{ marginTop: 50 }}>
+                    <ActivityIndicator size="large" color="#FFF" />
+                </View>
+            ) : (
+                <FlatList
+                    data={leaderboardData}
+                    renderItem={renderItem}
+                    keyExtractor={(item) => item.user_id}
+                    contentContainerStyle={styles.listContainer}
+                    refreshControl={
+                        <RefreshControl
+                            refreshing={refreshing}
+                            onRefresh={onRefresh}
+                            tintColor="#FFF"
+                            colors={["#FFF"]}
+                        />
+                    }
+                />
+            )}
         </View>
     );
 };
@@ -117,7 +126,6 @@ const LeaderboardView = () => {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: "#F8F8F8",
         backgroundColor: theme.colors.primary,
         paddingVertical: hp(9),
         paddingHorizontal: 18,
@@ -129,7 +137,6 @@ const styles = StyleSheet.create({
         shadowRadius: 1,
         marginBottom: 18,
     },
-
     headerTopRow: {
         flexDirection: "row",
         justifyContent: "space-between",
@@ -162,7 +169,7 @@ const styles = StyleSheet.create({
         justifyContent: "space-between",
         alignItems: "center",
         backgroundColor: "#FFF",
-        padding: 8,
+        padding: 12,
         marginBottom: 12,
         borderRadius: 13,
         shadowColor: "#000",

@@ -139,6 +139,7 @@ const SettingsView = () => {
                                     onSelect(item);
                                     setVisible(false);
                                 }}
+                                testID={`${item}-option`}
                             >
                                 <Text style={styles.modalItemText}>{item}</Text>
                             </TouchableOpacity>
@@ -204,6 +205,7 @@ const SettingsView = () => {
                     <View style={styles.switchContainer}>
                         <Text style={styles.label}>Enable Notifications</Text>
                         <Switch
+                            testID="notifications-switch"
                             value={settings.notificationsEnabled}
                             onValueChange={(value) =>
                                 setSettings({ ...settings, notificationsEnabled: value })
@@ -212,14 +214,14 @@ const SettingsView = () => {
                     </View>
 
                     <View style={styles.saveButton}>
-                        <Button title="Save" loading={loading} onPress={onSave} />
+                        <Button testID="save-button"  title="Save" loading={loading} onPress={onSave} />
                     </View>
 
                     <TouchableOpacity style={styles.signOutBtn} onPress={onSignOut}>
                         <Text style={styles.signOutText}>Sign Out</Text>
                     </TouchableOpacity>
 
-                    <Pressable onPress={onDeleteAccount} style={styles.deleteAccount}>
+                    <Pressable testID="delete-account-button" onPress={onDeleteAccount} style={styles.deleteAccount}>
                         <Text style={styles.deleteAccountText}>Delete My Account</Text>
                     </Pressable>
                 </View>

@@ -66,6 +66,7 @@ const signUp = () => {
             keyExtractor={(item) => item}
             renderItem={({ item }) => (
               <TouchableOpacity
+                testID={`modal-item-${item}`}
                 style={styles.modalItem}
                 onPress={() => {
                   onSelect(item);
@@ -100,11 +101,13 @@ const signUp = () => {
             Please fill the details to create an account.
           </Text>
           <Input
+            testID="email-input"
             icon={<Icon name="email" size={26} strokeWidth={1.6} />}
             placeholder="Enter your email"
             onChangeText={(value) => (emailRef.current = value)}
           />
           <Input
+            testID="password-input"
             icon={<Icon name="lock" size={26} strokeWidth={1.6} />}
             secureTextEntry
             placeholder="Enter your password"
@@ -112,7 +115,7 @@ const signUp = () => {
           />
 
           {/* Level Selector */}
-          <Pressable style={[styles.input, { opacity: education_level ? 1 : 0.5 }]} onPress={() => setShowLevelModal(true)}>
+          <Pressable testID="level-selector" style={[styles.input, { opacity: education_level ? 1 : 0.5 }]} onPress={() => setShowLevelModal(true)}>
             <Text style={styles.inputText}>{education_level || "Select Level"}</Text>
           </Pressable>
           {renderModal(showLevelModal, setShowLevelModal, Object.keys(optionsByLevel), setLevel)}

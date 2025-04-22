@@ -1,14 +1,19 @@
-import React, { useEffect, useState } from "react";
-import { View, Text, TouchableOpacity, StyleSheet, Alert } from "react-native";
+import React, { useEffect, useState, useRef } from "react";
+import { View, Text, TouchableOpacity, Pressable, StyleSheet, Alert } from "react-native";
 import * as Progress from "react-native-progress";
 import { submitDailyQuiz } from "../../../services/DailyQuizLogic";
 import { Ionicons } from "@expo/vector-icons";
+import ConfettiCannon from 'react-native-confetti-cannon';
+import { supabase } from "../../lib/supabase";
 
 const DailyQuizScreen = ({ route, navigation }) => {
     const { questions = [], quizData } = route.params;
     const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
     const [selectedChoice, setSelectedChoice] = useState(null);
     const [correctAnswers, setCorrectAnswers] = useState(0);
+    const [timeLeft, setTimeLeft] = useState(60);
+    const timerRef = useRef(null);
+    const [showIntroModal, setShowIntroModal] = useState(true);
 
     useEffect(() => {
         navigation.getParent()?.setOptions({ tabBarStyle: { display: 'none' } });
@@ -27,15 +32,37 @@ const DailyQuizScreen = ({ route, navigation }) => {
         }
     };
 
+    useEffect(() => {
+        if (!currentQuestion || showIntroModal) return;
+
+        setTimeLeft(45);
+        if (timerRef.current) clearInterval(timerRef.current);
+
+        timerRef.current = setInterval(() => {
+            setTimeLeft((prevTime) => {
+                if (prevTime === 1) {
+                    clearInterval(timerRef.current);
+                    Alert.alert("Time's up!", "Moving to the next question.");
+                    handleNextQuestion();
+                    return 45;
+                }
+                return prevTime - 1;
+            });
+        }, 1000);
+
+        return () => clearInterval(timerRef.current);
+    }, [currentQuestionIndex, showIntroModal]);
+
+
+
     const handleNextQuestion = () => {
-        handleAnswerSelection(); 
-        setSelectedChoice(null); 
-        setCurrentQuestionIndex((prev) => {
-            return prev + 1;
-        });
+        handleAnswerSelection();
+        setSelectedChoice(null);
+        setCurrentQuestionIndex((prev) => prev + 1);
     };
 
     const handleQuizCompletion = async () => {
+        clearInterval(timerRef.current);
         let finalCorrectAnswers = correctAnswers;
 
         if (selectedChoice === currentQuestion.correct) {
@@ -66,13 +93,48 @@ const DailyQuizScreen = ({ route, navigation }) => {
         }
     };
 
+
     const currentQuestion = questions[currentQuestionIndex];
     const totalQuestions = questions.length;
     const progress = (currentQuestionIndex + 1) / totalQuestions;
 
+
+
     const handleBackPress = () => {
-        navigation.goBack();
+        Alert.alert(
+            "Exit Quiz?",
+            "If you leave now, your quiz will not be submitted and you won't earn a streak point.",
+            [
+                { text: "Cancel", style: "cancel" },
+                {
+                    text: "Leave Anyway",
+                    style: "destructive",
+                    onPress: async () => {
+                        try {
+                            const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+
+                            if (sessionError || !session) {
+                                Alert.alert("Error", "Could not fetch session.");
+                                return;
+                            }
+
+                            const userId = session.user.id;
+                            const streakPoints = quizData?.streak_points || 0;
+
+                            await submitDailyQuiz(userId, 0, streakPoints, false);
+
+                            navigation.goBack();
+                        } catch (err) {
+                            console.error("Error in back press submit ❌", err.message);
+                            Alert.alert("Error", "Something went wrong.");
+                        }
+                    },
+                },
+            ]
+        );
     };
+
+
 
     if (!currentQuestion) {
         return (
@@ -87,15 +149,47 @@ const DailyQuizScreen = ({ route, navigation }) => {
         );
     }
 
+
+
+
     return (
         <View style={styles.container}>
             {/* Header */}
             <View style={styles.header}>
-                <TouchableOpacity onPress={handleBackPress}>
+                <Pressable
+                    onPress={() => {
+                        handleBackPress();
+                    }}
+                >
                     <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
-                </TouchableOpacity>
+                </Pressable>
                 <Text style={styles.headerTitle}>Daily Quiz</Text>
             </View>
+
+            {
+                showIntroModal && (
+                    <View style={styles.modalOverlay}>
+                        <Text style={styles.modalTitle}>Ready for the Daily Challenge?</Text>
+                        <Text style={styles.modalText}>🧠 You'll get 5 questions</Text>
+                        <Text style={styles.modalText}>⏱️ 45 seconds per question</Text>
+                        <Text style={styles.modalText}>🔥 Get all 5 correct to earn a streak point!</Text>
+                        <Text style={styles.modalText}>Good luck!</Text>
+
+                        <TouchableOpacity
+                            style={styles.startButton}
+                            onPress={() => setShowIntroModal(false)}
+                        >
+                            <Text style={styles.startButtonText}>Let’s Start!</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+
+                            onPress={() => navigation.goBack()}
+                        >
+                            <Text style={styles.modalText2}>Not now!</Text>
+                        </TouchableOpacity>
+                    </View>
+                )
+            }
 
             {/* Progress Bar */}
             <Progress.Bar
@@ -106,6 +200,9 @@ const DailyQuizScreen = ({ route, navigation }) => {
                 color="#6E3FFF"
                 style={styles.progressBar}
             />
+            <Text style={{ fontSize: 16, fontWeight: 'bold', color: '#FFC107', marginBottom: 10 }}>
+                Time Left: {timeLeft}s
+            </Text>
 
             {/* Question */}
             <View style={styles.questionContainer}>
@@ -171,6 +268,50 @@ const styles = StyleSheet.create({
         backgroundColor: "#0F1124",
         padding: 16,
     },
+    modalOverlay: {
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        backgroundColor: 'rgba(0, 0, 0, 0.95)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        padding: 30,
+        zIndex: 999,
+    },
+    modalTitle: {
+        fontSize: 26,
+        fontWeight: 'bold',
+        color: '#fff',
+        marginBottom: 20,
+        textAlign: 'center',
+    },
+    modalText: {
+        fontSize: 18,
+        color: '#ccc',
+        textAlign: 'center',
+        marginBottom: 10,
+    },
+    modalText2: {
+        fontSize: 18,
+        color: '#ccc',
+        textAlign: 'center',
+        marginTop: 20,
+    },
+    startButton: {
+        marginTop: 30,
+        backgroundColor: '#6E3FFF',
+        paddingVertical: 12,
+        paddingHorizontal: 30,
+        borderRadius: 20,
+    },
+    startButtonText: {
+        fontSize: 18,
+        color: '#fff',
+        fontWeight: '600',
+    },
+
     resultsContainer: {
         flex: 1,
         backgroundColor: "#0F1124",

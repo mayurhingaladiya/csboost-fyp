@@ -160,14 +160,17 @@ export const getOrCreateDailyQuiz = async (userId) => {
         }
 
         // If no quiz exists for today, create a new one
-        const { data: newQuiz, error: createError } = await supabase
+        const { data: newQuiz, error: upsertError } = await supabase
             .from("dailyquizzes")
-            .insert([{ user_id: userId, date: today, streak_points: 0, completed: false }])
+            .upsert(
+                [{ user_id: userId, date: today, streak_points: 0, completed: false }],
+                { onConflict: ['user_id', 'date'] }
+            )
             .select("*")
             .single();
 
-        if (createError) {
-            throw createError;
+        if (upsertError) {
+            throw upsertError;
         }
 
         return newQuiz; // Return the newly created quiz

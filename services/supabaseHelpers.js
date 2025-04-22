@@ -182,18 +182,16 @@ export const fetchWeakestSubtopics = async (userId, topicsData) => {
 
         const subtopicsWithProgress = [];
 
-        // Iterate through each paper
         for (const paper of topicsData) {
             if (!paper.topics || paper.topics.length === 0) {
                 console.warn("No topics found for paper:", paper.paper);
                 continue;
             }
 
-            // Iterate through the nested topics array
             for (const topic of paper.topics) {
                 if (!topic.id) {
                     console.error("Invalid topic data:", topic);
-                    continue; // Skip invalid topics
+                    continue;
                 }
 
                 const { data: subtopics, error } = await supabase
@@ -203,25 +201,39 @@ export const fetchWeakestSubtopics = async (userId, topicsData) => {
 
                 if (error) throw error;
 
-                for (const subtopic of subtopics) {
-                    const notesProgress = await fetchNotesProgress(userId, subtopic.id);
-                    const quizProgress = await fetchQuizProgress(userId, subtopic.id);
+                const subtopicProgressPromises = subtopics.map(async (subtopic) => {
+                    const [notesProgressRaw, quizProgressRaw] = await Promise.all([
+                        fetchNotesProgress(userId, subtopic.id),
+                        fetchQuizProgress(userId, subtopic.id),
+                    ]);
+
+                    const notesProgress = typeof notesProgressRaw === "number" ? notesProgressRaw : 0;
+                    const quizProgress = typeof quizProgressRaw === "number" ? quizProgressRaw : 0;
+
+                    const hasProgress = notesProgress > 0 || quizProgress > 0;
+                    if (!hasProgress) return null;
+
                     const averageProgress = (notesProgress + quizProgress) / 2;
 
-                    subtopicsWithProgress.push({
+                    return {
                         id: subtopic.id,
                         title: subtopic.title,
                         progress: averageProgress,
-                    });
-                }
+                    };
+                });
+
+                const topicSubtopicsProgress = await Promise.all(subtopicProgressPromises);
+
+                // Remove any nulls
+                const cleanedSubtopics = topicSubtopicsProgress.filter(Boolean);
+                subtopicsWithProgress.push(...cleanedSubtopics);
             }
         }
 
-        // Filter subtopics with progress < 70%
         const weakSubtopics = subtopicsWithProgress
-            .filter((subtopic) => subtopic.progress < 70)
-            .sort((a, b) => a.progress - b.progress) // Sort by progress ascending
-            .slice(0, 3); // Limit to top 3
+            .filter((sub) => sub.progress < 70)
+            .sort((a, b) => a.progress - b.progress)
+            .slice(0, 3); // Return top 3 weakest
 
         return weakSubtopics;
     } catch (err) {

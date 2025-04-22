@@ -76,6 +76,32 @@ const TopicDetailScreen = ({ route, navigation }) => {
         return "#FFD6D6"; // Light Red
     };
 
+    const sortedSubtopics = [...subtopics].sort((a, b) => {
+        const parseTitle = (title) => {
+            const match = title.match(/^(\d+(\.\d+)*)(\s|$)/);
+            if (!match) return null;
+
+            return match[1].split('.').map((num) => parseInt(num, 10));
+        };
+
+        const aParts = parseTitle(a.title);
+        const bParts = parseTitle(b.title);
+
+        // If one doesn't match, push it to the bottom
+        if (!aParts && !bParts) return 0;
+        if (!aParts) return 1;
+        if (!bParts) return -1;
+
+        // Compare part by part
+        for (let i = 0; i < Math.max(aParts.length, bParts.length); i++) {
+            const aVal = aParts[i] ?? 0;
+            const bVal = bParts[i] ?? 0;
+            if (aVal !== bVal) return aVal - bVal;
+        }
+
+        return 0;
+    });
+
     return (
         <View style={styles.container}>
             {/* Header */}
@@ -112,7 +138,7 @@ const TopicDetailScreen = ({ route, navigation }) => {
 
             {/* Subtopics */}
             <ScrollView style={styles.content}>
-                {subtopics.map((subtopic) => (
+                {sortedSubtopics.map((subtopic) => (
                     <View key={subtopic.id} style={styles.subtopicCard}>
                         <TouchableOpacity
                             style={styles.subtopicHeader}
