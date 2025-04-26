@@ -78,7 +78,7 @@ const DailyQuizScreen = ({ route, navigation }) => {
                 return;
             }
 
-            await submitDailyQuiz(userId, finalCorrectAnswers, streakPoints, true);
+            await submitDailyQuiz(userId, finalCorrectAnswers, true);
 
             Alert.alert(
                 "Quiz Completed",

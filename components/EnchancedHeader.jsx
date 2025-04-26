@@ -48,15 +48,15 @@ const EnhancedHeader = ({
 
     const handleStreakPress = () => {
         Alert.alert(
-            "Your Streak 🔥",
-            `You are on a ${streak}-day streak! Keep it up by completing daily quizzes and activities!`
+            "Your Boosts ⚡️",
+            `You have collected ${streak} boosts! Collect more by completing daily quizzes and levelling up!`
         );
     };
 
     const handleRankPress = () => {
         Alert.alert(
             `Your Rank 🏅`,
-            `Rank: ${rank}\nAchieve higher ranks by completing daily quizzes and activities!`
+            `Rank: ${rank}\nAchieve higher ranks by collecting more boosts!`
         );
     };
 
@@ -79,7 +79,7 @@ const EnhancedHeader = ({
                         onPress={handleStreakPress}
                         style={styles.streakContainer}
                     >
-                        <FontAwesome5 name="fire" size={20} color="#FF4500" />
+                        <FontAwesome5 name="bolt" size={20} color="#FF4500" />
                         <Text style={styles.streakText}>{streak}</Text>
                     </TouchableOpacity>
                     <TouchableOpacity

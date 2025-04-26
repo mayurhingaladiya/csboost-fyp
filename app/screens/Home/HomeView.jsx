@@ -2,7 +2,7 @@ import React, { useCallback, useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, Alert, Animated, Dimensions, Button } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import { fetchRecentActivity, fetchSubtopicProgress, fetchUserData, fetchUserRank } from '../../../services/supabaseHelpers';
-import { ensureDailyQuizzes, fetchDailyQuizQuestions, fetchQuizData } from '../../../services/DailyQuizLogic';
+import { ensureDailyQuizzes, fetchDailyQuizQuestions, fetchQuizData, getLevelInfo } from '../../../services/DailyQuizLogic';
 import DailyQuizCard from '../../../components/DailyQuizCard';
 import EnhancedHeader from '../../../components/EnchancedHeader';
 import ContinueLearningCard from '../../../components/ContinueLearningCard';
@@ -10,6 +10,9 @@ import ExamCountdownCard from '../../../components/ExamCountdownCard';
 import { supabase } from '../../lib/supabase';
 import OnboardingModal from '../../../components/OnboardingModal';
 import RevisionTipsCard from '../../../components/RevisionTipsCard';
+import XPStatusCard from '../../../components/XPStatusCard';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import LevelUpOverlay from '../../../components/LevelUpOverlay';
 
 const { width } = Dimensions.get("window");
 
@@ -21,9 +24,56 @@ const HomeView = ({ navigation }) => {
     const [quizData, setQuizData] = useState(null);
     const [userRank, setUserRank] = useState(null);
     const [showOnboarding, setShowOnboarding] = useState(false);
-
+    const [totalStreakPoints, setTotalStreakPoints] = useState(0);
+    const [xpData, setXpData] = useState({ level: 1, currentXp: 0, xpNeeded: 100, progress: 0 });
+    const [levelUpData, setLevelUpData] = useState(null);
 
     const scrollY = new Animated.Value(0);
+
+
+    useFocusEffect(
+        useCallback(() => {
+            const checkLevelUp = async () => {
+                const pending = await AsyncStorage.getItem("levelUpPending");
+
+                if (pending) {
+                    const { levels } = JSON.parse(pending);
+                    if (Array.isArray(levels) && levels.length > 0) {
+                        const firstLevel = levels[0];
+                        const remaining = levels.slice(1);
+
+                        const points = Math.floor(Math.random() * 4) + 2;
+                        const today = new Date().toISOString().split("T")[0];
+
+                        await supabase.from("user_rewards").insert({
+                            user_id: userData.id,
+                            date: today,
+                            source: "level_up",
+                            xp: 0,
+                            streak_points: points,
+                            meta: { new_level: firstLevel },
+                        });
+
+                        setLevelUpData({ level: firstLevel, boostPoints: points });
+
+                        if (remaining.length > 0) {
+                            await AsyncStorage.setItem(
+                                "levelUpPending",
+                                JSON.stringify({ levels: remaining })
+                            );
+                        } else {
+                            await AsyncStorage.removeItem("levelUpPending");
+                        }
+                    }
+                }
+            };
+
+            if (userData?.id && !levelUpData) {
+                checkLevelUp();
+            }
+        }, [userData?.id, levelUpData])
+    );
+
 
 
     const initializeData = async () => {
@@ -34,7 +84,8 @@ const HomeView = ({ navigation }) => {
             if (!user.has_seen_onboarding) {
                 setShowOnboarding(true);
             }
-            await ensureDailyQuizzes(userId)
+
+            await ensureDailyQuizzes(userId);
 
             const rank = await fetchUserRank(userId);
             setUserRank(rank);
@@ -46,8 +97,27 @@ const HomeView = ({ navigation }) => {
                 const progress = await fetchSubtopicProgress(userId, activity.topicId);
                 setProgress(progress);
             }
+
             const quiz = await fetchQuizData(userId);
             setQuizData(quiz);
+
+            // Fetch XP + Streak Points
+            const { data: rewards, error: rewardsError } = await supabase
+                .from("user_rewards")
+                .select("xp, streak_points")
+                .eq("user_id", userId);
+
+            if (rewardsError) throw rewardsError;
+
+            const totalXp = rewards.reduce((acc, entry) => acc + entry.xp, 0);
+            const totalStreak = rewards.reduce((acc, entry) => acc + entry.streak_points, 0);
+            setTotalStreakPoints(totalStreak);
+
+            const levelInfo = getLevelInfo(totalXp);
+            setXpData(levelInfo);
+
+
+
         } catch (error) {
             console.error(error.message);
         }
@@ -125,6 +195,15 @@ const HomeView = ({ navigation }) => {
                     await supabase.from("users").update({ has_seen_onboarding: true }).eq("id", userData.id);
                 }}
             />
+            <LevelUpOverlay
+                visible={!!levelUpData}
+                level={levelUpData?.level}
+                boostPoints={levelUpData?.boostPoints}
+                onClose={() => {
+                    setLevelUpData(null); // hide current
+                    setTimeout(() => initializeData(), 100); // re-run to catch next level
+                }}
+            />
             <ScrollView
                 contentContainerStyle={styles.scrollContainer}
                 onScroll={Animated.event(
@@ -135,11 +214,17 @@ const HomeView = ({ navigation }) => {
             >
                 <EnhancedHeader
                     username={username}
-                    streak={quizData?.currentStreak || 0}
+                    streak={totalStreakPoints}
                     rank={userRank || "N/A"}
                     examSpec={userData.exam_specification}
                     educationLevel={userData.education_level}
                     scrollY={scrollY}
+                />
+                <XPStatusCard
+                    level={xpData.level}
+                    currentXp={xpData.currentXp}
+                    xpNeeded={xpData.xpNeeded}
+                    progress={xpData.progress}
                 />
                 <DailyQuizCard
                     quizData={quizData}

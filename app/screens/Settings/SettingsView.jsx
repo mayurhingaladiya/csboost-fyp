@@ -67,7 +67,12 @@ const SettingsView = () => {
                                 await supabase.from("quizprogress").delete().eq("user_id", user.id);
                                 await supabase.from("leaderboard").delete().eq("user_id", user.id);
                                 await supabase.from("dailyquizzes").delete().eq("user_id", user.id);
-                                // Reset progress logic...
+                                await supabase.from("user_rewards").delete().eq("user_id", user.id);
+                                await supabase
+                                    .from("users")
+                                    .update({ has_seen_onboarding: false, xp: 0, level: 1 })
+                                    .eq("id", user.id);    
+                                                            
                                 const updatedSettings = {
                                     education_level: tempLevel,
                                     exam_specification: tempSpec,
@@ -214,7 +219,7 @@ const SettingsView = () => {
                     </View>
 
                     <View style={styles.saveButton}>
-                        <Button testID="save-button"  title="Save" loading={loading} onPress={onSave} />
+                        <Button testID="save-button" title="Save" loading={loading} onPress={onSave} />
                     </View>
 
                     <TouchableOpacity style={styles.signOutBtn} onPress={onSignOut}>

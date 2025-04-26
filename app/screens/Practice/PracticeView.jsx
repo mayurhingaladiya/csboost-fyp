@@ -10,6 +10,7 @@ import ProgressCircle from '../../../components/ProgessCircle';
 import { fetchOverallProgress, fetchSubtopicProgress } from '../../../services/supabaseHelpers';
 import { useFocusEffect } from 'expo-router';
 import PracticeHeader from '../../../components/PracticeHeader';
+import MockTestCard from '../../../components/MockTestCard';
 
 const PracticeView = ({ navigation }) => {
     const { settings, loading: settingsLoading } = useSettings();
@@ -118,6 +119,8 @@ const PracticeView = ({ navigation }) => {
                     </View>
                 ) : topicsData?.length > 0 ? (
                     <ScrollView style={styles.content}>
+                        <MockTestCard onPress={() => navigation.navigate("MockTestIntro")} />
+
                         {topicsData.map((section, index) => (
                             <View key={index}>
                                 <Text style={styles.paperTitle}>Paper {section.paper}</Text>

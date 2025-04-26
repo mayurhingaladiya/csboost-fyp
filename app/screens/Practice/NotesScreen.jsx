@@ -6,6 +6,8 @@ import Button from "../../../components/Button";
 import { hp } from "../../helpers/common";
 import { Ionicons } from "@expo/vector-icons";
 import Markdown from 'react-native-markdown-display';
+import { handleXpAndLevelUp } from "../../helpers/xpManager";
+import * as Haptics from 'expo-haptics';
 
 const NotesScreen = ({ route, navigation }) => {
     const { subtopicId, subtopicTitle } = route.params;
@@ -13,6 +15,10 @@ const NotesScreen = ({ route, navigation }) => {
     const [currentIndex, setCurrentIndex] = useState(0);
     const [loading, setLoading] = useState(true);
     const [userId, setUserId] = useState(null);
+    const [earnedXp, setEarnedXp] = useState(0);
+    const [earnedPages, setEarnedPages] = useState(new Set());
+    const [initialLevel, setInitialLevel] = useState(null);
+
 
     useEffect(() => {
         const fetchUserId = async () => {
@@ -60,6 +66,22 @@ const NotesScreen = ({ route, navigation }) => {
                     setCurrentIndex(progressData.page);
                 }
 
+                const { data: rewardData, error: rewardError } = await supabase
+                    .from("user_rewards")
+                    .select("meta")
+                    .eq("user_id", userId)
+                    .contains("meta", { subtopic_id: subtopicId });
+
+                if (rewardData && rewardData.length > 0) {
+                    const pagesEarned = rewardData.map(entry => entry.meta?.page_index).filter(i => i !== undefined);
+                    setEarnedPages(new Set(pagesEarned));
+                    setEarnedXp(pagesEarned.length); // 1 XP per page
+                }
+
+                await handleXpAndLevelUp(userId);
+
+
+
             } catch (error) {
                 console.error("Error loading notes or progress:", error.message);
                 Alert.alert("Error", "Failed to load notes or progress.");
@@ -70,6 +92,37 @@ const NotesScreen = ({ route, navigation }) => {
 
         if (userId) fetchNotesAndProgress();
     }, [subtopicId, userId]);
+
+    useEffect(() => {
+        const fetchInitialLevel = async () => {
+            const {
+                data: { session },
+                error: sessionError,
+            } = await supabase.auth.getSession();
+
+            if (sessionError || !session?.user?.id) {
+                console.error("Failed to fetch session for level:", sessionError?.message);
+                return;
+            }
+
+            const userId = session.user.id;
+
+            const { data, error } = await supabase
+                .from("users")
+                .select("level")
+                .eq("id", userId)
+                .single();
+
+            if (!error && data) {
+                setInitialLevel(data.level);
+                setUserId(userId);
+            } else {
+                console.error("Failed to fetch user level:", error?.message);
+            }
+        };
+
+        fetchInitialLevel();
+    }, []);
 
     const updateProgress = async (index) => {
         try {
@@ -93,10 +146,37 @@ const NotesScreen = ({ route, navigation }) => {
 
     const handleContinue = async () => {
         const nextIndex = currentIndex + 1;
+
         if (nextIndex < sections.length) {
             setCurrentIndex(nextIndex);
             updateProgress(nextIndex);
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
+            if (!earnedPages.has(nextIndex)) {
+                const today = new Date().toISOString().split("T")[0];
+
+                await supabase.from("user_rewards").insert({
+                    user_id: userId,
+                    date: today,
+                    source: "notes",
+                    xp: 1,
+                    streak_points: 0,
+                    meta: {
+                        subtopic_id: subtopicId,
+                        page_index: nextIndex,
+                    }
+                });
+
+                setEarnedXp((prev) => prev + 1);
+                setEarnedPages((prev) => new Set(prev).add(nextIndex));
+
+                if (initialLevel !== null) {
+                    await handleXpAndLevelUp(userId, initialLevel);
+                }
+                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            }
         } else {
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success); // 🎉 finished section
             Alert.alert(
                 "Finished",
                 "You have finished notes for this topic. Do you want to restart?",
@@ -107,6 +187,8 @@ const NotesScreen = ({ route, navigation }) => {
             );
         }
     };
+
+
 
     const handleGoBackSection = async () => {
         const prevIndex = currentIndex - 1;
@@ -143,6 +225,9 @@ const NotesScreen = ({ route, navigation }) => {
                     <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
                 </TouchableOpacity>
                 <Text style={styles.headerTitle}>{subtopicTitle}</Text>
+            </View>
+            <View style={styles.xpBadge}>
+                <Text style={styles.xpText}>+{earnedXp} XP</Text>
             </View>
             <Progress.Bar
                 progress={progress}
@@ -185,6 +270,28 @@ const styles = StyleSheet.create({
         padding: 20,
         backgroundColor: "#0F1124",
     },
+    xpBadge: {
+        position: 'absolute',
+        top: hp(9.5),
+        right: 16,
+        backgroundColor: '#0F1124',
+        borderColor: '#9B59FF',
+        borderWidth: 1,
+        paddingHorizontal: 10,
+        paddingVertical: 4,
+        borderRadius: 12,
+        shadowColor: '#9B59FF',
+        shadowOpacity: 0.7,
+        shadowRadius: 6,
+        shadowOffset: { width: 0, height: 0 },
+        zIndex: 1000,
+    },
+    xpText: {
+        color: '#FFFFFF',
+        fontWeight: 'bold',
+        fontSize: 12,
+    },
+
     scrollView: {
         flex: 1,
         padding: 20,

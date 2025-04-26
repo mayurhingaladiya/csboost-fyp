@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
     View,
     Text,
@@ -11,6 +11,9 @@ import { Ionicons } from "@expo/vector-icons";
 import * as Progress from "react-native-progress";
 import { supabase } from "../../lib/supabase";
 import { hp } from "../../helpers/common";
+import XPStreakDisplay from "../../../components/XPStreakDisplay";
+import { handleXpAndLevelUp } from "../../helpers/xpManager";
+import * as Haptics from 'expo-haptics';
 
 const QuizScreen = ({ route, navigation }) => {
     const { subtopicId, subtopicTitle } = route.params;
@@ -22,6 +25,24 @@ const QuizScreen = ({ route, navigation }) => {
     const [progressColors, setProgressColors] = useState([]);
     const [isQuizCompleted, setIsQuizCompleted] = useState(false);
     const [answers, setAnswers] = useState([]);
+    const [xp, setXp] = useState(0);
+    const [streak, setStreak] = useState(0);
+    const [firstAttempt, setFirstAttempt] = useState(true);
+    const [initialLevel, setInitialLevel] = useState(null);
+    const [timedQuestionIndices, setTimedQuestionIndices] = useState([]);
+    const [timeLeft, setTimeLeft] = useState(12);
+    const [timerActive, setTimerActive] = useState(false);
+    const [bonusXp, setBonusXp] = useState(50);
+    const [bonusXpEarned, setBonusXpEarned] = useState(0);
+    const timerRef = useRef(null);
+    const [bonusXpLog, setBonusXpLog] = useState([]);
+
+    const shuffleArray = (array) => {
+        return array
+            .map(value => ({ value, sort: Math.random() }))
+            .sort((a, b) => a.sort - b.sort)
+            .map(({ value }) => value);
+    };
 
     useEffect(() => {
         const fetchQuestions = async () => {
@@ -33,22 +54,110 @@ const QuizScreen = ({ route, navigation }) => {
 
                 if (error) throw error;
 
-                setQuestions(data);
+                const shuffledQuestions = shuffleArray(
+                    data.map((question) => {
+                        const originalChoices = [...question.choices];
+                        const correctAnswer = originalChoices[question.correct];
+
+                        const shuffledChoices = shuffleArray(originalChoices);
+                        const newCorrectIndex = shuffledChoices.indexOf(correctAnswer);
+
+                        return {
+                            ...question,
+                            choices: shuffledChoices,
+                            correct: newCorrectIndex
+                        };
+                    })
+                );
+
+                setQuestions(shuffledQuestions);
+
+                // Randomly select multiple timed questions based on total count
+                const numTimed = Math.max(1, Math.floor(shuffledQuestions.length / 3));
+                const randomIndices = shuffleArray(
+                    Array.from({ length: shuffledQuestions.length }, (_, i) => i)
+                ).slice(0, numTimed);
+
+                setTimedQuestionIndices(randomIndices);
+
             } catch (err) {
                 Alert.alert("Error", "Failed to load quiz questions.");
                 console.error(err);
             }
         };
 
+        const checkFirstAttempt = async () => {
+            const { data, error } = await supabase
+                .from("quizprogress")
+                .select("subtopic_id")
+                .eq("subtopic_id", subtopicId)
+                .single();
+
+            if (data) setFirstAttempt(false);
+        };
+
+        checkFirstAttempt();
+
         fetchQuestions();
     }, [subtopicId]);
+
+    useEffect(() => {
+        if (timedQuestionIndices.includes(currentQuestionIndex)) {
+            setTimerActive(true);
+            setTimeLeft(12);
+            setBonusXp(50);
+
+            timerRef.current = setInterval(() => {
+                setTimeLeft((prev) => {
+                    if (prev <= 1) {
+                        clearInterval(timerRef.current);
+                        setTimerActive(false);
+                        Alert.alert("⏱ Time’s up!", "You missed the bonus XP opportunity.", [
+                            { text: "Next", onPress: () => handleNextQuestion() }
+                        ]);
+                        return 0;
+                    }
+
+                    setBonusXp((prevXp) => Math.max(prevXp - 4, 0)); // decrement XP
+                    return prev - 1;
+                });
+            }, 1000);
+
+        } else {
+            clearInterval(timerRef.current);
+            setTimerActive(false);
+        }
+
+        return () => clearInterval(timerRef.current);
+    }, [currentQuestionIndex]);
+
 
     const handleCheckAnswer = () => {
         if (selectedChoice === null) return;
         const isCorrect = selectedChoice === questions[currentQuestionIndex].correct;
 
         if (isCorrect) {
-            setScore((prevScore) => prevScore + 1);
+            setScore((prev) => prev + 1);
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            const difficulty = questions[currentQuestionIndex].difficulty; // "easy", "medium", "hard"
+            let baseXp = difficulty === "easy" ? 10 : difficulty === "medium" ? 20 : 30;
+            const bonus = 1 + streak * 0.1;
+            const gainedXp = Math.round(baseXp * bonus);
+
+            setXp((prev) => prev + gainedXp);
+            setStreak((prev) => prev + 1);
+        } else {
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+            setStreak(0);
+        }
+
+
+        if (timedQuestionIndices.includes(currentQuestionIndex) && timeLeft > 0) {
+            setXp((prev) => prev + bonusXp);
+            setBonusXpEarned(bonusXp);
+            setBonusXpLog(prev => [...prev, { index: currentQuestionIndex, xp: bonusXp }]);
+            clearInterval(timerRef.current);
+            setTimerActive(false);
         }
 
         const currentAnswer = {
@@ -70,6 +179,47 @@ const QuizScreen = ({ route, navigation }) => {
         setCurrentQuestionIndex((prev) => prev + 1);
     };
 
+    useEffect(() => {
+        const fetchInitialLevel = async () => {
+            const {
+                data: { session },
+                error: sessionError,
+            } = await supabase.auth.getSession();
+
+            if (sessionError || !session?.user?.id) {
+                console.error("Failed to fetch session for level:", sessionError?.message);
+                return;
+            }
+
+            const userId = session.user.id;
+
+            const { data, error } = await supabase
+                .from("users")
+                .select("level")
+                .eq("id", userId)
+                .single();
+
+            if (!error && data) {
+                setInitialLevel(data.level);
+                setUserId(userId);
+            } else {
+                console.error("Failed to fetch user level:", error?.message);
+            }
+        };
+
+        fetchInitialLevel();
+    }, []);
+
+    useEffect(() => {
+        if (
+            streak >= 2 &&
+            !timedQuestionIndices.includes(currentQuestionIndex) &&
+            Math.random() < 0.5 // 50% chance to trigger
+        ) {
+            setTimedQuestionIndices((prev) => [...prev, currentQuestionIndex]);
+        }
+    }, [currentQuestionIndex, streak]);
+
     const handleQuizCompletion = async () => {
         try {
             const { data: { session }, error } = await supabase.auth.getSession();
@@ -78,23 +228,54 @@ const QuizScreen = ({ route, navigation }) => {
                 return;
             }
 
-            const progress = (score / questions.length) * 100;
+            const userId = session.user.id;
+            const totalQuestions = questions.length;
+            const progress = (score / totalQuestions) * 100;
+            const today = new Date().toISOString().split("T")[0];
 
+            // 1. save quiz progress (record attempt)
             const { error: upsertError } = await supabase
                 .from("quizprogress")
                 .upsert({
-                    user_id: session.user.id,
+                    user_id: userId,
                     subtopic_id: subtopicId,
-                    total_questions: questions.length,
+                    total_questions: totalQuestions,
                     correct_answers: score,
                     progress,
                 });
 
             if (upsertError) throw upsertError;
 
+            // 2. determine XP and streak point reward
+            let streakPoints = 0;
+            if (firstAttempt && progress >= 70) streakPoints = 2;
+            if (firstAttempt && score === totalQuestions) streakPoints = streak;
+
+            const { error: rewardError } = await supabase.from("user_rewards").insert({
+                user_id: userId,
+                date: today,
+                source: "subtopic_quiz",
+                xp,
+                streak_points: streakPoints,
+                meta: {
+                    subtopic_id: subtopicId,
+                    accuracy: progress,
+                    first_attempt: firstAttempt,
+                },
+            });
+
+            if (rewardError) {
+                console.error("Failed to award XP/streak:", rewardError.message);
+            }
+
+            // 3. check if they leveled up based on previous level
+            if (initialLevel !== null) {
+                await handleXpAndLevelUp(userId, initialLevel);
+            }
+
             setIsQuizCompleted(true);
         } catch (err) {
-            Alert.alert("Error", "Failed to save quiz progress.");
+            Alert.alert("Error", "Failed to complete quiz.");
             console.error(err);
         }
     };
@@ -135,6 +316,21 @@ const QuizScreen = ({ route, navigation }) => {
                 {/* Header */}
                 <View style={styles.header}>
                     <Text style={styles.headerTitle}>Quiz Results</Text>
+                </View>
+                <View style={styles.rewardCard}>
+                    <Text style={styles.rewardTitle}>🎉 Rewards Summary</Text>
+                    <Text style={styles.rewardText}>+{xp} XP earned</Text>
+                    {bonusXpLog.length > 0 && (
+                        <Text style={styles.rewardText}>
+                            ⏱ Bonus XP Earned: {bonusXpLog.reduce((acc, b) => acc + b.xp, 0)}
+                        </Text>
+                    )}
+                    {firstAttempt && score === totalQuestions && (
+                        <Text style={styles.rewardText}>🔥 {streak} Boost Points (First try & 100%)</Text>
+                    )}
+                    {firstAttempt && score < totalQuestions && progress >= 70 && (
+                        <Text style={styles.rewardText}>🔥 +2 Boost Point (First attempt)</Text>
+                    )}
                 </View>
 
                 {/* Score Summary */}
@@ -178,6 +374,7 @@ const QuizScreen = ({ route, navigation }) => {
     }
     return (
         <View style={styles.container}>
+            <XPStreakDisplay xp={xp} streak={streak} />
             {/* Header */}
             <View style={styles.header}>
                 <TouchableOpacity onPress={handleBackPress}>
@@ -243,6 +440,8 @@ const QuizScreen = ({ route, navigation }) => {
                 </View>
             )}
 
+
+
             {/* Action Buttons */}
             <View style={styles.actionContainer}>
                 {!isAnswered ? (
@@ -269,6 +468,23 @@ const QuizScreen = ({ route, navigation }) => {
                     </TouchableOpacity>
                 )}
             </View>
+
+            {timerActive && (
+                <View style={styles.timerBanner}>
+                    <View style={styles.timerBarWrapper}>
+                        <Progress.Bar
+                            progress={timeLeft / 12}
+                            width={null}
+                            height={10}
+                            color="#FF6B6B"
+                            unfilledColor="#333"
+                            borderRadius={10}
+                            borderWidth={0}
+                        />
+                    </View>
+                    <Text style={styles.timerText}>⏳ +{bonusXp} XP</Text>
+                </View>
+            )}
         </View>
     );
 };
@@ -281,10 +497,36 @@ const styles = StyleSheet.create({
         backgroundColor: "#0F1124",
         padding: 16,
     },
+    rewardCard: {
+        backgroundColor: '#1e1e2f',
+        padding: 16,
+        marginV: 10,
+        marginHorizontal: 20,
+        borderRadius: 12,
+        shadowColor: '#6E3FFF',
+        shadowOpacity: 0.3,
+        shadowOffset: { width: 0, height: 4 },
+        shadowRadius: 6,
+        elevation: 4,
+        alignItems: 'center',
+    },
+    rewardTitle: {
+        color: '#fff',
+        fontSize: 16,
+        fontWeight: 'bold',
+        marginBottom: 6,
+    },
+    rewardText: {
+        color: '#ccc',
+        fontSize: 14,
+        marginTop: 2,
+    },
+
+
     header: {
         flexDirection: "row",
         alignItems: "start",
-        paddingTop: hp(7.5)
+        paddingTop: hp(10.5)
     },
     headerTitle: {
         marginLeft: 8,
@@ -423,6 +665,39 @@ const styles = StyleSheet.create({
         fontSize: 14,
         color: "#FFFFFF",
         marginTop: 8,
+    },
+    timerBanner: {
+        position: 'absolute',
+        bottom: 16,
+        left: 16,
+        right: 16,
+        backgroundColor: 'rgba(30, 30, 30, 0.95)',
+        borderRadius: 16,
+        padding: 12,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        shadowColor: '#FF6B6B',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.4,
+        shadowRadius: 8,
+        elevation: 8,
+        borderWidth: 1,
+        borderColor: '#FF6B6B'
+    },
+
+    timerBarWrapper: {
+        flex: 1,
+        marginRight: 12,
+    },
+
+    timerText: {
+        fontWeight: 'bold',
+        fontSize: 14,
+        color: '#FFD700', // gold
+        textShadowColor: 'rgba(255, 255, 255, 0.4)',
+        textShadowOffset: { width: 0, height: 1 },
+        textShadowRadius: 4,
     },
 
 });

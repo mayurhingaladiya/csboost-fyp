@@ -71,9 +71,9 @@ const TopicDetailScreen = ({ route, navigation }) => {
 
     // Determine background color based on progress percentage
     const getProgressColor = (progress) => {
-        if (progress >= 70) return "#DFF6DD"; // Light Green
-        if (progress >= 30) return "#FFF4CC"; // Light Yellow
-        return "#FFD6D6"; // Light Red
+        if (progress >= 70) return "#DFF6DD"; 
+        if (progress >= 30) return "#FFF4CC";
+        return "#FFD6D6";
     };
 
     const sortedSubtopics = [...subtopics].sort((a, b) => {

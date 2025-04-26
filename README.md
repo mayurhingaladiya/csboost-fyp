@@ -1,50 +1,54 @@
-# Welcome to your Expo app 👋
+# 📚 Welcome to CSBoost!
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+## Introduction
+CS-Boost is a React Native application built with Expo. This guide will help you get the app running on your local  environment.
 
-## Get started
+## Prerequisites
+* [Node.js](https://nodejs.org/) (Recommended: Install the latest LTS version)
+* [npm](https://www.npmjs.com/) (Usually comes with Node.js)
+* [Expo CLI](https://docs.expo.io/latest/tutorial/installation/) (`npm install -g expo-cli`)
+* [Expo Go](https://expo.io/tools#expo-go) (Install on your mobile device for Instant Preview)
 
-1. Install dependencies
+## Installation Instructions
 
-   ```bash
-   npm install
-   ```
+1.  **Install Dependencies**
 
-2. Start the app
+    Open your terminal and navigate to the project directory. Then, run the following command:
 
-   ```bash
+    ```bash
+    npm install
+    ```
+
+    This command will install all the necessary packages and libraries required for the application to run.
+
+2.  **Start the Development Server**
+
+    Once the dependencies are installed, start the Expo development server with the following command:
+
+    ```bash
     npx expo start
-   ```
+    ```
 
-In the output, you'll find options to open the app in a
+    This will bundle your application and provide you with options to launch it.
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+3. **Launch the app**
 
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
+    Choose your preferred method to launch the app:
 
-## Get a fresh project
+    * **For Instant Preview:**
+        1.  Install **Expo Go** on your mobile device from the App Store (iOS) or Google Play Store (Android).
+        2.  Scan the QR code displayed in your terminal after running `npx expo start`.  Ensure your mobile device and computer are on the same network.
+        3.  In the Expo Go app, select your project (it should be named "newfyp" or similar) to launch the CS Boost app.
 
-When you're ready, run:
+## First-Time Setup
 
-```bash
-npm run reset-project
-```
+### OCR GCSE Content Access
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+Follow these steps to ensure you can access the OCR GCSE content within the CS Boost application:
 
-## Learn more
+1.  **Create a New Account:** Launch the app and go through the registration process.
+2.  **During Registration, Set the Following:**
+    * **Specification:** OCR
+    * **Level:** GCSE
 
-To learn more about developing your project with Expo, look at the following resources:
-
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
-
-## Join the community
-
-Join our community of developers creating universal apps.
-
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+    These settings are crucial for accessing the correct content, other specifications and level do not have content as of 26-04-2025

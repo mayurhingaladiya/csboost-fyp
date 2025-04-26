@@ -8,22 +8,22 @@ const ProgressCircle = ({ progress }) => {
 
     // Determine the progress color based on the percentage
     const getColor = () => {
-        if (progress === 100) return "#00C853"; // Full progress (green)
-        if (progress > 50) return "#f5cc00"; // Midway progress (yellow)
-        return "#FF3B30"; // Low progress (red)
+        if (progress === 100) return "#00C853";
+        if (progress > 50) return "#f5cc00";
+        return "#FF3B30";
     };
 
     return (
         <Progress.Circle
-            size={30} // Adjust size as needed
+            size={30}
             progress={normalizedProgress}
             color={getColor()}
-            unfilledColor="#E0E0E0" // Background of the circle
-            borderWidth={0} // Optional, removes outer border
-            thickness={5} // Adjust thickness of the progress bar
-            showsText={false} // Display percentage inside the circle
-            textStyle={styles.textStyle} // Style for the text inside
-            formatText={() => `${progress}%`} // Format displayed text
+            unfilledColor="#E0E0E0"
+            borderWidth={0}
+            thickness={5}
+            showsText={false}
+            textStyle={styles.textStyle}
+            formatText={() => `${progress}%`}
         />
     );
 };

@@ -1,53 +1,67 @@
 import { supabase } from "../app/lib/supabase";
 
-export const calculateStreakData = (dailyQuizzes) => {
-    const streakDays = [];
-    const streakHistory = [];
-    let currentStreak = 0;
-    let longestStreak = 0;
+export const getLevelInfo = (xp) => {
+        let level = 1;
+        let xpForNext = 100;
 
-    // Sort quizzes by date
-    dailyQuizzes.sort((a, b) => new Date(a.date) - new Date(b.date));
-
-    let prevDate = null;
-    dailyQuizzes.forEach((quiz) => {
-        const quizDate = new Date(quiz.date);
-        const formattedDate = `${quizDate.getDate()}/${quizDate.getMonth() + 1}`;
-
-        // Add quiz to streakHistory regardless of completion status
-        streakHistory.push({
-            day: quizDate.toLocaleDateString("en-US", { weekday: "short" }),
-            date: formattedDate,
-        });
-
-        // Only consider quizzes with streak points (completed quizzes)
-        if (quiz.streak_points > 0) {
-            streakDays.push(formattedDate);
-
-            // Check for consecutive days (streak)
-            if (prevDate) {
-                const diffDays = (quizDate - prevDate) / (1000 * 60 * 60 * 24);
-                if (diffDays === 1) {
-                    // Increment streak if consecutive day
-                    currentStreak += 1;
-                } else if (diffDays > 1) {
-                    // Reset streak if days are skipped
-                    currentStreak = 1;
-                }
-            } else {
-                currentStreak = 1; // Start new streak if first quiz
-            }
-
-            // Update longest streak
-            longestStreak = Math.max(longestStreak, currentStreak);
-        } else {
-            // Reset streak on missed quiz
-            currentStreak = 0;
+        while (xp >= xpForNext) {
+            level++;
+            xp -= xpForNext;
+            xpForNext = level * 100;
         }
 
-        // Update the previous date for next comparison
-        prevDate = quizDate;
+        return {
+            level,
+            currentXp: xp,
+            xpNeeded: xpForNext,
+            progress: xp / xpForNext,
+        };
+    };
+
+export const calculateStreakData = (user, rewards) => {
+    const dateJoined = new Date(user.date_joined);
+    const today = new Date();
+    const rewardMap = new Map();
+
+    // Build map of reward entries for quick lookup
+    rewards.forEach((entry) => {
+        const key = new Date(entry.date).toISOString().split("T")[0];
+        rewardMap.set(key, entry.streak_points);
     });
+
+    const streakHistory = [];
+    const streakDays = [];
+
+    let currentStreak = 0;
+    let longestStreak = 0;
+    let prevDate = null;
+
+    for (let d = new Date(dateJoined); d <= today; d.setDate(d.getDate() + 1)) {
+        const key = d.toISOString().split("T")[0];
+        const points = rewardMap.get(key) || 0;
+        const formatted = `${d.getDate()}/${d.getMonth() + 1}`;
+
+        streakHistory.push({
+            day: d.toLocaleDateString("en-US", { weekday: "short" }),
+            date: formatted,
+        });
+
+        if (points > 0) {
+            streakDays.push(formatted);
+
+            if (prevDate) {
+                const diffDays = (d - prevDate) / (1000 * 60 * 60 * 24);
+                currentStreak = diffDays === 1 ? currentStreak + 1 : 1;
+            } else {
+                currentStreak = 1;
+            }
+
+            longestStreak = Math.max(longestStreak, currentStreak);
+            prevDate = new Date(d);
+        } else {
+            currentStreak = 0;
+        }
+    }
 
     return { streakHistory, streakDays, currentStreak, longestStreak };
 };
@@ -182,29 +196,29 @@ export const getOrCreateDailyQuiz = async (userId) => {
 
 // Fetch or create daily quiz
 export const fetchQuizData = async (userId) => {
-    try {
-        const { data: quizzes, error: quizzesError } = await supabase
-            .from("dailyquizzes")
-            .select("*")
-            .eq("user_id", userId);
+    const { data: user, error: userError } = await supabase
+        .from("users")
+        .select("date_joined")
+        .eq("id", userId)
+        .single();
 
-        if (quizzesError || !quizzes) {
-            throw new Error("Unable to fetch daily quizzes");
-        }
+    if (userError || !user) throw new Error("Could not load user info");
 
-        const streakData = calculateStreakData(quizzes);
-        const quiz = await getOrCreateDailyQuiz(userId);
+    // ✅ Only use streak_points from daily_quiz source
+    const { data: rewards, error } = await supabase
+        .from("user_rewards")
+        .select("date, streak_points")
+        .eq("user_id", userId)
+        .eq("source", "daily_quiz");
 
-        if (!quiz) {
-            throw new Error("Failed to fetch or create today's quiz");
-        }
+    if (error || !rewards) throw new Error("Unable to fetch reward data");
 
-        return { ...quiz, ...streakData };
-    } catch (err) {
-        console.error("Error in fetchQuizData:", err.message);
-        return null;
-    }
+    const streakData = calculateStreakData(user, rewards);
+    const quiz = await getOrCreateDailyQuiz(userId);
+
+    return { ...quiz, ...streakData };
 };
+
 
 // Fetch random questions for the daily quiz
 export const fetchDailyQuizQuestions = async (educationLevel, examSpecification) => {
@@ -223,20 +237,29 @@ export const fetchDailyQuizQuestions = async (educationLevel, examSpecification)
 };
 
 // Submit the quiz and update streak
-export const submitDailyQuiz = async (userId, correctAnswers, streak, completed) => {
+export const submitDailyQuiz = async (userId, correctAnswers, completed) => {
     const today = new Date().toISOString().split("T")[0];
 
-    // Update the daily quiz
-    const { error } = await supabase
-        .from("dailyquizzes")
-        .update({
-            streak_points: correctAnswers === 5 ? streak + 1 : 0,
-            completed: completed,
-        })
-        .eq("user_id", userId)
-        .eq("date", today);
+    if (completed) {
+        const { error: updateError } = await supabase
+            .from("dailyquizzes")
+            .update({ completed: true })
+            .eq("user_id", userId)
+            .eq("date", today);
 
-    if (error) throw error;
+        if (updateError) throw updateError;
+
+        const { error: rewardError } = await supabase.from("user_rewards").insert({
+            user_id: userId,
+            date: today,
+            source: "daily_quiz",
+            xp: correctAnswers === 5 ? 50 : correctAnswers * 10,
+            streak_points: correctAnswers === 5 ? 1 : 0,
+        });
+
+        if (rewardError) throw rewardError;
+    }
 };
+
 
 

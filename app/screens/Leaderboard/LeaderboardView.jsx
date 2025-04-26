@@ -1,9 +1,10 @@
-import React, { useEffect, useState, useCallback} from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import { View, Text, FlatList, StyleSheet, TouchableOpacity, RefreshControl, ActivityIndicator, Alert } from "react-native";
 import { MaterialIcons } from "@expo/vector-icons";
 import { theme } from "../../../constants/theme";
 import { hp } from "../../helpers/common";
 import { supabase } from "../../lib/supabase";
+import { Ionicons } from '@expo/vector-icons';
 
 const LeaderboardView = () => {
     const [leaderboardData, setLeaderboardData] = useState([]);
@@ -16,7 +17,7 @@ const LeaderboardView = () => {
             setLoading(true);
             const { data: leaderboard, error } = await supabase
                 .from("leaderboard")
-                .select("user_id, rank, streak_points, users(email)")
+                .select("user_id, rank, streak_points, users(email, level, xp)")
                 .order("streak_points", { ascending: false })
                 .limit(10);
 
@@ -29,6 +30,8 @@ const LeaderboardView = () => {
                 leaderboard.map((item) => ({
                     ...item,
                     email: item.users?.email || "Unknown",
+                    level: item.users?.level ?? 1,
+                    xp: item.users?.xp ?? 0,
                 }))
             );
 
@@ -69,16 +72,23 @@ const LeaderboardView = () => {
     const handleHelpPress = () => {
         Alert.alert(
             "How Leaderboard Works",
-            "The leaderboard ranks users based on their streak points. Streak points are earned by completing daily quizzes consecutively. Aim for the top!"
+            "The leaderboard ranks users based on their boost points. Boost points are earned by completing daily quizzes and activities. Aim for the top!"
         );
     };
 
     const renderItem = ({ item }) => (
-        <View style={styles.listItem}>
-            <Text style={styles.listText}>
-                {item.rank}. {item.email.split("@")[0]}
-            </Text>
-            <Text style={styles.listPoints}>{item.streak_points} pts</Text>
+        <View style={styles.leaderItem}>
+            <View style={styles.leaderLeft}>
+                <Text style={styles.rank}>{item.rank}</Text>
+                <View>
+                    <Text style={styles.username}>{item.email.split("@")[0]}</Text>
+                    <Text style={styles.levelText}>Level {item.level} • {item.xp} XP</Text>
+                </View>
+            </View>
+            <View style={styles.streakBadge}>
+                <Ionicons name="flame" size={16} color="#fff" style={{ marginRight: 4 }} />
+                <Text style={styles.streakText}>{item.streak_points}</Text>
+            </View>
         </View>
     );
 
@@ -185,6 +195,60 @@ const styles = StyleSheet.create({
     listPoints: {
         fontSize: 14,
         color: "#666",
+    },
+    leaderItem: {
+        backgroundColor: "#FFF",
+        marginVertical: 8,
+        padding: 14,
+        borderRadius: 22,
+        flexDirection: "row",
+        justifyContent: "space-between",
+        alignItems: "center",
+        shadowColor: "#000",
+        shadowOpacity: 0.1,
+        shadowRadius: 6,
+        shadowOffset: { width: 0, height: 2 },
+    },
+
+    leaderLeft: {
+        flexDirection: "row",
+        alignItems: "center",
+    },
+
+    rank: {
+        fontSize: 22,
+        fontWeight: "bold",
+        color: "orange",
+        width: 32,
+        textAlign: "center",
+        marginRight: 12,
+    },
+
+    username: {
+        fontSize: 16,
+        fontWeight: "600",
+        color: "#000",
+    },
+
+    levelText: {
+        fontSize: 13,
+        color: "gray",
+        marginTop: 2,
+    },
+
+    streakBadge: {
+        flexDirection: "row",
+        alignItems: "center",
+        backgroundColor: theme.colors.primary,
+        paddingHorizontal: 10,
+        paddingVertical: 5,
+        borderRadius: 20,
+    },
+
+    streakText: {
+        fontSize: 14,
+        color: "#fff",
+        fontWeight: "600",
     },
 });
 

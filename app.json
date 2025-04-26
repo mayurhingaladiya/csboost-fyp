@@ -14,6 +14,8 @@
       "infoPlist": {
         "UIBackgroundModes": [
           "fetch",
+          "remote-notification",
+          "fetch",
           "remote-notification"
         ]
       }
@@ -52,6 +54,12 @@
       "eas": {
         "projectId": "5e43ad2f-3bdc-465d-ab2e-2e6088dbc10f"
       }
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/5e43ad2f-3bdc-465d-ab2e-2e6088dbc10f"
     }
   }
 }

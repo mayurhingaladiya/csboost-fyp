@@ -7,19 +7,19 @@ const { width, height } = Dimensions.get("window");
 const slides = [
     {
         title: "🎉 Welcome to CS-Boost!",
-        description: "This is your revision sidekick for GCSE & A-Level Computer Science. Let’s boost your grades — the fun way!",
+        description: "This is your revision buddy for GCSE & A-Level Computer Science. Let’s boost your grades — the fun way!",
     },
     {
         title: "📅 Daily Quizzes = Streaks!",
-        description: "Each day at midnight, a new quiz drops. Get all answers right to earn streak points and level up on the leaderboard!",
+        description: "Each day at midnight, a new quiz drops. Get all answers right to earn boost points and rank up on the leaderboard!",
     },
     {
         title: "🏆 Practice & Compete",
-        description: "Revise topics with notes and quizzes. Track progress and rise through the ranks by keeping your streak alive!",
+        description: "Revise topics with notes and quizzes. Track progress and rise through the ranks by collecting XP points!",
     },
     {
         title: "🚀 Ready to Boost?",
-        description: "Let’s earn points, climb the leaderboard, and become a Computer Science champ!",
+        description: "Let’s earn points, climb the leaderboard, and become a Computer Science genius!",
         isFinal: true,
     },
 ];
