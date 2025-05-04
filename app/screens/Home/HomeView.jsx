@@ -99,6 +99,7 @@ const HomeView = ({ navigation }) => {
             }
 
             const quiz = await fetchQuizData(userId);
+
             setQuizData(quiz);
 
             // Fetch XP + Streak Points

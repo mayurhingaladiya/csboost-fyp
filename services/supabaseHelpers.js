@@ -154,6 +154,7 @@ export const fetchRecentActivity = async (userId) => {
     const { data: recent, error: recentError } = await supabase
         .from("notesprogress")
         .select("subtopic_id, attempted_at")
+        .eq("user_id", userId)
         .order("attempted_at", { ascending: false })
         .limit(1)
         .single();

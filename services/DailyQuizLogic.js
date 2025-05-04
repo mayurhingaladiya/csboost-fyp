@@ -1,22 +1,22 @@
 import { supabase } from "../app/lib/supabase";
 
 export const getLevelInfo = (xp) => {
-        let level = 1;
-        let xpForNext = 100;
+    let level = 1;
+    let xpForNext = 100;
 
-        while (xp >= xpForNext) {
-            level++;
-            xp -= xpForNext;
-            xpForNext = level * 100;
-        }
+    while (xp >= xpForNext) {
+        level++;
+        xp -= xpForNext;
+        xpForNext = level * 100;
+    }
 
-        return {
-            level,
-            currentXp: xp,
-            xpNeeded: xpForNext,
-            progress: xp / xpForNext,
-        };
+    return {
+        level,
+        currentXp: xp,
+        xpNeeded: xpForNext,
+        progress: xp / xpForNext,
     };
+};
 
 export const calculateStreakData = (user, rewards) => {
     const dateJoined = new Date(user.date_joined);
@@ -44,7 +44,10 @@ export const calculateStreakData = (user, rewards) => {
         streakHistory.push({
             day: d.toLocaleDateString("en-US", { weekday: "short" }),
             date: formatted,
+            completed: points > 0,
+            isToday: key === today.toISOString().split("T")[0]
         });
+
 
         if (points > 0) {
             streakDays.push(formatted);
